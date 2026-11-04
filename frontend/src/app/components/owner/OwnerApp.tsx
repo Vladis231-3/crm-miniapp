@@ -39,7 +39,9 @@ import {
   type PlateType,
 } from '../../utils/validation';
 import { useVisualViewport } from '../../utils/useVisualViewport';
-import { dopWorkerEarned, formulaTailError, mainWorkerEarned } from '../../utils/moneySplit';
+import { bookingMainOutsource, bookingOutsourceTotal, dopWorkerEarned, formulaTailError, mainWorkerEarned } from '../../utils/moneySplit';
+import { BookingOutsourceEditor, OutsourcerFields, useOutsourcers } from '../shared/OutsourcerFields';
+import { OutsourcersPage } from './OutsourcersPage';
 import { MoneyRecalcCard } from './MoneyRecalcCard';
 import { formatFixedMasterAmount, isFixedMasterService } from '../ui/utils';
 import { REFERRAL_SOURCES } from '../../constants/referralSources';
@@ -55,7 +57,7 @@ function stockCategoryIdsWithDescendants(rootId: string, categories: { id: strin
   return result;
 }
 
-type OwnerPage = 'dashboard' | 'calendar' | 'payroll' | 'salary-detail' | 'stock' | 'reports' | 'settings' | 'piggy-bank' | 'clients' | 'wallet';
+type OwnerPage = 'dashboard' | 'calendar' | 'payroll' | 'salary-detail' | 'stock' | 'reports' | 'settings' | 'piggy-bank' | 'clients' | 'wallet' | 'outsourcers';
 type SettingsSection = null | 'company' | 'schedule' | 'boxes' | 'services' | 'employees' | 'clients' | 'notifications' | 'integrations' | 'security' | 'finance' | 'content' | 'wallet' | 'reports' | 'bookings-history' | 'archive' | 'money-flow' | 'deposit' | 'shift' | 'cleanup';
 type OwnerExportKind = 'report' | 'pdf' | 'piggy-bank';
 type KpiServiceItem = { name: string; revenue: number; count: number };
@@ -63,7 +65,7 @@ type KpiModalData =
   | { kind: 'bookings'; title: string; color: string; totalLabel: string; total: number; isMoney?: boolean; bookings: Booking[] }
   | { kind: 'expenses'; title: string; color: string; total: number; expenses: Expense[] }
   | { kind: 'services'; title: string; color: string; services: KpiServiceItem[] }
-  | { kind: 'finance'; title: string; color: string; revenue: number; incomes: number; expenses: number; profit: number };
+  | { kind: 'finance'; title: string; color: string; revenue: number; incomes: number; expenses: number; outsource: number; profit: number };
 
 interface SalaryBookingItem {
   id: string; date: string; time: string; service: string; serviceId?: string | null;
@@ -125,7 +127,7 @@ interface MoneySplitDetail {
   id: string; clientName: string; clientPhone: string; service: string; serviceId: string;
   date: string; time: string; box: string; price: number; status: string;
   paymentType: string; paymentSettled?: boolean; resourceGroup: string;
-  mainPrice: number; additionalServices: AdditionalServiceItem[];
+  mainPrice: number; mainOutsourceAmount?: number; mainOutsourcerName?: string; additionalServices: AdditionalServiceItem[];
   additionalTotal: number; subtractTotal: number; splitBase: number;
   materialsCost: number; materialsCostAuto: number; materialsCostOverride?: number | null;
   net: number; masterTotal: number; masterTotalAuto: number;
@@ -1031,6 +1033,7 @@ export function OwnerApp() {
     isRepeatVisit: false,
     isOutsource: false,
     outsourceAmount: 0,
+    outsourcerId: '',
   });
   const [notifyBookingWorkers, setNotifyBookingWorkers] = useState(true);
   const [bookingWorkers, setBookingWorkers] = useState<{ id: string; percent: number | ''; payType?: 'percent' | 'fixed'; fixedAmount?: number }[]>([]);
@@ -1094,6 +1097,8 @@ export function OwnerApp() {
   const [payrollDateFrom, setPayrollDateFrom] = useState('');
   const [payrollDateTo, setPayrollDateTo] = useState('');
   const [outsourcePayroll, setOutsourcePayroll] = useState<OutsourcePayrollData | null>(null);
+  const outsourcersApi = useOutsourcers();
+  const [outsourcersBackPage, setOutsourcersBackPage] = useState<OwnerPage>('payroll');
   const [payrollData, setPayrollData] = useState<Worker[] | null>(null);
   const [ownerSalaryData, setOwnerSalaryData] = useState<OwnerSalaryData | null>(null);
   const [ownerSalaryPeriod, setOwnerSalaryPeriod] = useState<'day' | 'week' | 'month' | 'all' | 'custom'>('month');
@@ -1264,6 +1269,7 @@ export function OwnerApp() {
   const [simPercent, setSimPercent] = useState('');
   const [simCredit, setSimCredit] = useState(false);
   const [simComplaintPp, setSimComplaintPp] = useState('');
+  const [simOutsource, setSimOutsource] = useState('');
   interface SimDopRow {
     key: string; serviceId: string; name: string; price: string;
     mode: 'add' | 'subtract'; payType: 'percent' | 'fixed'; percent: string;
@@ -1338,6 +1344,7 @@ export function OwnerApp() {
     paymentSettled: false,
       isOutsource: false,
       outsourceAmount: 0,
+      outsourcerId: '',
       referralSource: '',
       isRepeatVisit: false,
     });
@@ -1382,14 +1389,14 @@ export function OwnerApp() {
 
   // Add additional service state
   const [showOwnerAddService, setShowOwnerAddService] = useState(false);
-  const [ownerAddServiceDraft, setOwnerAddServiceDraft] = useState({ serviceId: '', price: 0, duration: 30, priceMode: 'add' as 'add' | 'subtract', isOutsource: false, outsourceAmount: 0 });
+  const [ownerAddServiceDraft, setOwnerAddServiceDraft] = useState({ serviceId: '', price: 0, duration: 30, priceMode: 'add' as 'add' | 'subtract', isOutsource: false, outsourceAmount: 0, outsourcerId: '' });
   const [ownerAddServiceWorkers, setOwnerAddServiceWorkers] = useState<{ id: string; percent: number | ''; payType?: 'percent' | 'fixed'; fixedAmount?: number }[]>([]);
   const [ownerAddServiceSaving, setOwnerAddServiceSaving] = useState(false);
   const [ownerAddServiceError, setOwnerAddServiceError] = useState<string | null>(null);
 
   // Edit additional service state
   const [ownerEditAsvcId, setOwnerEditAsvcId] = useState<string | null>(null);
-  const [ownerEditAsvcDraft, setOwnerEditAsvcDraft] = useState({ price: 0, duration: 30, priceMode: 'add' as 'add' | 'subtract', isOutsource: false, outsourceAmount: 0 });
+  const [ownerEditAsvcDraft, setOwnerEditAsvcDraft] = useState({ price: 0, duration: 30, priceMode: 'add' as 'add' | 'subtract', isOutsource: false, outsourceAmount: 0, outsourcerId: '' });
   const [ownerEditAsvcWorkers, setOwnerEditAsvcWorkers] = useState<{ id: string; percent: number | ''; payType?: 'percent' | 'fixed'; fixedAmount?: number }[]>([]);
   const [ownerEditAsvcSaving, setOwnerEditAsvcSaving] = useState(false);
   const [ownerEditAsvcError, setOwnerEditAsvcError] = useState<string | null>(null);
@@ -1880,7 +1887,8 @@ export function OwnerApp() {
   const totalRevenue = weeklyCompletedBookings.reduce((s, b) => s + b.price, 0);
   const totalExpenses = weeklyExpenses.reduce((s, e) => s + e.amount, 0);
   const totalIncomes = weeklyIncomes.reduce((s, i) => s + i.amount, 0);
-  const profit = totalRevenue + totalIncomes - totalExpenses;
+  const totalOutsource = weeklyCompletedBookings.reduce((s, b) => s + bookingOutsourceTotal(b), 0);
+  const profit = totalRevenue + totalIncomes - totalExpenses - totalOutsource;
   const averageCheck = weeklyCompletedBookings.length > 0 ? Math.round(totalRevenue / weeklyCompletedBookings.length) : 0;
   const activeBookings = bookings.filter((booking) => ['new', 'confirmed', 'scheduled', 'in_progress'].includes(booking.status));
   const pipelineCounts = {
@@ -3614,6 +3622,7 @@ export function OwnerApp() {
       isRepeatVisit: false,
       isOutsource: false,
       outsourceAmount: 0,
+      outsourcerId: '',
     });
   };
 
@@ -3650,6 +3659,7 @@ export function OwnerApp() {
       isRepeatVisit: false,
       isOutsource: false,
       outsourceAmount: 0,
+      outsourcerId: '',
     });
     setShowCreateBooking(true);
   };
@@ -3741,6 +3751,21 @@ export function OwnerApp() {
       return;
     }
 
+    const outsourceProblem = (bookingForm.isOutsource
+      ? !bookingForm.outsourcerId
+        ? 'Выберите аутсорсера'
+        : bookingForm.outsourceAmount <= 0
+          ? 'Укажите сумму аутсорсеру'
+          : bookingForm.outsourceAmount > bookingForm.price
+            ? 'Сумма аутсорсеру больше цены услуги'
+            : null
+      : null);
+    if (outsourceProblem) {
+      setBottomToast(outsourceProblem);
+      setTimeout(() => setBottomToast(null), 3000);
+      return;
+    }
+
     const selectedWorkers: { workerId: string; workerName: string; percent: number; payType: 'percent' | 'fixed'; fixedAmount?: number }[] = [];
     bookingWorkers.forEach((item) => {
       const worker = workers.find((candidate) => candidate.id === item.id);
@@ -3766,12 +3791,13 @@ export function OwnerApp() {
         paymentSettled: bookingForm.paymentSettled,
         isOutsource: bookingForm.isOutsource,
         outsourceAmount: bookingForm.outsourceAmount,
+        outsourcerId: bookingForm.isOutsource ? bookingForm.outsourcerId : undefined,
         car: normalizedCar,
         plate: normalizedPlate,
         plateType: bookingForm.plateType,
         referralSource: bookingForm.referralSource || undefined,
         isRepeatVisit: bookingForm.isRepeatVisit,
-        notifyWorkers: !bookingForm.isOutsource && notifyBookingWorkers && selectedWorkers.length > 0 && bookingForm.status !== 'completed',
+        notifyWorkers: notifyBookingWorkers && selectedWorkers.length > 0 && bookingForm.status !== 'completed',
       });
       if (bookingForm.status !== 'completed') {
         await addNotification({ recipientRole: 'client', recipientId: booking.clientId, message: `Создана запись на ${svc?.name || bookingForm.service}  -  ${bookingForm.date} в ${bookingForm.time}`, read: false });
@@ -3818,6 +3844,7 @@ setOwnerNewBookingWorkers([]);
 paymentSettled: false,
       isOutsource: false,
       outsourceAmount: 0,
+      outsourcerId: '',
       referralSource: '',
       isRepeatVisit: false,
     });
@@ -3881,6 +3908,20 @@ paymentSettled: false,
       return { workerId: item.id, workerName: worker?.name || '', percent: item.percent === '' ? 0 : item.percent, payType: item.payType || 'percent', fixedAmount: item.fixedAmount };
     });
     // Мягкое напоминание: услуга назначена, но мастер забыт — не блокируем сохранение
+    const outsourceProblem = (ownerNewBookingForm.isOutsource
+      ? !ownerNewBookingForm.outsourcerId
+        ? 'Выберите аутсорсера'
+        : ownerNewBookingForm.outsourceAmount <= 0
+          ? 'Укажите сумму аутсорсеру'
+          : ownerNewBookingForm.outsourceAmount > ownerNewBookingForm.price
+            ? 'Сумма аутсорсеру больше цены услуги'
+            : null
+      : null);
+    if (outsourceProblem) {
+      setBottomToast(outsourceProblem);
+      setTimeout(() => setBottomToast(null), 3000);
+      return;
+    }
     const withoutMasterReminder = !ownerNewBookingForm.isOutsource && Boolean(ownerNewBookingForm.serviceId) && createdWorkers.length === 0;
     const normalizedDate = parsedDate ? formatDate(parsedDate) : '';
     try {
@@ -3902,13 +3943,14 @@ paymentSettled: false,
         paymentSettled: ownerNewBookingForm.paymentSettled,
         isOutsource: ownerNewBookingForm.isOutsource,
         outsourceAmount: ownerNewBookingForm.outsourceAmount,
+        outsourcerId: ownerNewBookingForm.isOutsource ? ownerNewBookingForm.outsourcerId : undefined,
         car: normalizedCar,
         plate: normalizedPlate,
         plateType: ownerNewBookingForm.plateType,
         notes: ownerNewBookingForm.notes,
         referralSource: ownerNewBookingForm.referralSource || undefined,
         isRepeatVisit: ownerNewBookingForm.isRepeatVisit,
-        notifyWorkers: !ownerNewBookingForm.isOutsource && notify,
+        notifyWorkers: notify,
         materials: ownerNewBookingMaterials.map(m => ({
           ...m,
           qty: typeof m.qty === 'string' ? (parseFloat(m.qty) || 0) : m.qty,
@@ -4122,7 +4164,7 @@ paymentSettled: false,
   };
 
   const handleOpenOwnerAddService = () => {
-    setOwnerAddServiceDraft({ serviceId: '', price: 0, duration: 30, priceMode: 'add', isOutsource: false, outsourceAmount: 0 });
+    setOwnerAddServiceDraft({ serviceId: '', price: 0, duration: 30, priceMode: 'add', isOutsource: false, outsourceAmount: 0, outsourcerId: '' });
     setOwnerAddServiceWorkers([]);
     setOwnerAddServiceError(null);
     setOwnerAddServiceSaving(false);
@@ -4134,6 +4176,7 @@ paymentSettled: false,
     setOwnerAddServiceSaving(true);
     setOwnerAddServiceError(null);
     try {
+      if (ownerAddServiceDraft.isOutsource && !ownerAddServiceDraft.outsourcerId) throw new Error('Выберите аутсорсера');
       const svc = liveServices.find(s => s.id === ownerAddServiceDraft.serviceId);
       const workersList = ownerAddServiceWorkers.map(w => {
         const worker = workers.find(wk => wk.id === w.id);
@@ -4147,6 +4190,7 @@ paymentSettled: false,
         priceMode: ownerAddServiceDraft.priceMode,
         isOutsource: ownerAddServiceDraft.isOutsource,
         outsourceAmount: ownerAddServiceDraft.isOutsource ? ownerAddServiceDraft.outsourceAmount : 0,
+        outsourcerId: ownerAddServiceDraft.isOutsource ? ownerAddServiceDraft.outsourcerId : undefined,
         workers: ownerAddServiceDraft.isOutsource ? [] : workersList,
       });
       setSelectedBooking(updatedBooking);
@@ -4160,7 +4204,7 @@ paymentSettled: false,
 
   const handleOpenOwnerEditAsvc = (asvc: AdditionalService) => {
     setOwnerEditAsvcId(asvc.id);
-    setOwnerEditAsvcDraft({ price: asvc.price, duration: asvc.duration, priceMode: asvc.priceMode || 'add', isOutsource: !!asvc.isOutsource, outsourceAmount: asvc.outsourceAmount || 0 });
+    setOwnerEditAsvcDraft({ price: asvc.price, duration: asvc.duration, priceMode: asvc.priceMode || 'add', isOutsource: !!asvc.isOutsource, outsourceAmount: asvc.outsourceAmount || 0, outsourcerId: asvc.outsourcerId || '' });
     setOwnerEditAsvcWorkers(asvc.workers.map(w => ({ id: w.workerId, percent: w.percent, payType: w.payType || 'percent', fixedAmount: w.fixedAmount })));
     setOwnerEditAsvcError(null);
     setOwnerEditAsvcSaving(false);
@@ -4171,6 +4215,7 @@ paymentSettled: false,
     setOwnerEditAsvcSaving(true);
     setOwnerEditAsvcError(null);
     try {
+      if (ownerEditAsvcDraft.isOutsource && !ownerEditAsvcDraft.outsourcerId) throw new Error('Выберите аутсорсера');
       const workersList = ownerEditAsvcWorkers.map(w => {
         const worker = workers.find(wk => wk.id === w.id);
         return { workerId: w.id, workerName: worker?.name || '', percent: w.percent === '' ? 0 : w.percent as number, payType: w.payType || 'percent', fixedAmount: w.fixedAmount };
@@ -4181,6 +4226,7 @@ paymentSettled: false,
         priceMode: ownerEditAsvcDraft.priceMode,
         isOutsource: ownerEditAsvcDraft.isOutsource,
         outsourceAmount: ownerEditAsvcDraft.isOutsource ? ownerEditAsvcDraft.outsourceAmount : 0,
+        outsourcerId: ownerEditAsvcDraft.isOutsource ? ownerEditAsvcDraft.outsourcerId : undefined,
         workers: ownerEditAsvcDraft.isOutsource ? [] : workersList,
       });
       setSelectedBooking(updatedBooking);
@@ -4232,6 +4278,7 @@ paymentSettled: false,
         revenue: totalRevenue,
         incomes: totalIncomes,
         expenses: totalExpenses,
+        outsource: totalOutsource,
         profit,
       }),
     },
@@ -4788,7 +4835,7 @@ paymentSettled: false,
                               if (w.payType === 'fixed') return `${w.workerName} · ${(w.fixedAmount || 0).toLocaleString('ru')} ₽`;
                               const _addTotal = (booking.additionalServices || []).reduce((s: number, as: any) => s + (as.priceMode === 'subtract' ? 0 : Number(as.price) || 0), 0);
                               const _legacyTotal = (booking.services || []).reduce((s: number, svc: any) => s + (Number(svc.price) || 0), 0);
-                              const _base = Math.max(0, (Number(booking.price) || 0) - _addTotal - _legacyTotal);
+                              const _base = Math.max(0, (Number(booking.price) || 0) - _addTotal - _legacyTotal - bookingMainOutsource(booking));
                               const _pct = w.percent === '' || w.percent == null ? 0 : Number(w.percent) || 0;
                               const _earned = Math.round(_base * _pct / 100);
                               return `${w.workerName} ${w.percent === '' ? 0 : w.percent}% · ${_earned.toLocaleString('ru')} ₽`;
@@ -4972,6 +5019,11 @@ paymentSettled: false,
           )}
 
           {/* в”Ђв”Ђ PAYROLL в”Ђв”Ђ */}
+          {page === 'outsourcers' && (
+            <motion.div key="outsourcers" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+              <OutsourcersPage glass={glass} sub={sub} inputCls={inputCls} primary={primary} onBack={() => { setPage(outsourcersBackPage); outsourcersApi.reload(); }} />
+            </motion.div>
+          )}
           {page === 'payroll' && (
             <motion.div key="payroll" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
               <h2 className="font-semibold mb-1">Зарплаты мастеров</h2>
@@ -5033,7 +5085,7 @@ paymentSettled: false,
               </div>}
               {outsourcePayroll && outsourcePayroll.total > 0 && <div className={`${glass} rounded-2xl p-4 mb-4`}>
                 <div className={`text-xs ${sub} mb-1 flex items-center gap-1.5`}>Аутсорс за период
-                  <EditAmountPencil primary={primary} size={11} title="Аутсорс считается из доп. услуг — правится в записи" onClick={() => setPage('calendar')} />
+                  <EditAmountPencil primary={primary} size={11} title="Аутсорс правится в записи" onClick={() => setPage('calendar')} />
                 </div>
                 <div className="font-bold text-xl" style={{ color: '#0EA5E9' }}>{outsourcePayroll.total.toLocaleString('ru')} ₽</div>
                 <div className="mt-2 space-y-1">
@@ -5045,6 +5097,7 @@ paymentSettled: false,
                   ))}
                 </div>
               </div>}
+              <button type="button" onClick={() => { setOutsourcersBackPage('payroll'); setPage('outsourcers'); }} className={`${glass} rounded-2xl p-4 mb-4 w-full text-left text-sm font-medium min-h-[44px]`}>Аутсорсеры: кому и сколько отдали</button>
               <button onClick={() => { void handleSavePayrollSettings(); }} className="w-full py-3 rounded-2xl text-white font-semibold flex items-center justify-center gap-2 mb-4" style={{ background: primary }}>
                 <Save size={16} strokeWidth={1.75} />Сохранить настройки зарплат
               </button>
@@ -6807,6 +6860,7 @@ paymentSettled: false,
                 { id: 'finance', icon: BarChart3, label: 'Финансы', desc: 'Отчёт по мойке и детейлингу', color: '#22C55E' },
                 { id: 'deposit', icon: Wallet, label: 'Депозит', desc: 'Абонентские клиенты, мойки в долг', color: '#F59E0B' },
                 { id: 'wallet', icon: Wallet, label: 'Кошелёк', desc: 'Доходы и расходы за неделю', color: '#0EA5E9' },
+                { id: 'outsourcers', icon: Users, label: 'Аутсорсеры', desc: 'Кому и сколько отдали, что осталось нам', color: '#0EA5E9' },
                 { id: 'money-flow', icon: ArrowLeftRight, label: 'Движение денег', desc: 'Все приходы, распределения и выплаты', color: '#8B5CF6' },
                 { id: 'bookings-history', icon: History, label: 'История записей', desc: 'Распределение денег по записям', color: '#6366F1' },
                 { id: 'archive', icon: Archive, label: 'Архив', desc: 'Главная библиотека: все записи и расчёты', color: '#10B981' },
@@ -6820,6 +6874,7 @@ paymentSettled: false,
                 <motion.button key={item.id} whileTap={{ scale: 0.98 }}
                   onClick={() => {
                     if (item.id === 'reports') { setPage('reports'); setSettingsSection(null); }
+                    else if (item.id === 'outsourcers') { setOutsourcersBackPage('settings'); setPage('outsourcers'); setSettingsSection(null); }
                     else { setSettingsSection(item.id as SettingsSection); }
                   }}
                   className={`${glass} rounded-2xl p-4 w-full text-left mb-2 flex items-center gap-3`}>
@@ -7212,6 +7267,12 @@ paymentSettled: false,
                         <span className={sub}>{splitDetail.service}</span>
                         <span className="font-medium">{splitDetail.mainPrice.toLocaleString('ru')} ₽</span>
                       </div>
+                      {(splitDetail.mainOutsourceAmount ?? 0) > 0 && (
+                        <div className="flex justify-between text-xs">
+                          <span className={sub}>Аутсорс{splitDetail.mainOutsourcerName ? ` · ${splitDetail.mainOutsourcerName}` : ''}</span>
+                          <span className="font-medium text-red-500">- {(splitDetail.mainOutsourceAmount ?? 0).toLocaleString('ru')} ₽</span>
+                        </div>
+                      )}
                       {splitDetail.additionalServices.map(a => (
                         <div key={`${a.name}-${a.price}`} className="flex justify-between text-xs">
                           <span className={sub}>+ {a.name}{a.priceMode === 'subtract' ? ' (вычет)' : ''}{a.isOutsource ? ` (аутсорс: ${(a.outsourceAmount || 0).toLocaleString('ru')} ₽)` : ''}</span>
@@ -7233,6 +7294,7 @@ paymentSettled: false,
                     <div className="mb-4 rounded-xl p-3 space-y-1.5" style={{ background: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)' }}>
                       <div className="flex justify-between text-xs"><span className={sub}>Цена записи</span><span className="font-semibold">{splitDetail.price.toLocaleString('ru')} ₽</span></div>
                       <div className="flex justify-between text-xs"><span className={sub}>Основная услуга</span><span>{splitDetail.mainPrice.toLocaleString('ru')} ₽</span></div>
+                      {(splitDetail.mainOutsourceAmount ?? 0) > 0 && <div className="flex justify-between text-xs"><span className={sub}>Аутсорс{splitDetail.mainOutsourcerName ? ` · ${splitDetail.mainOutsourcerName}` : ''}</span><span className="text-red-500">- {(splitDetail.mainOutsourceAmount ?? 0).toLocaleString('ru')} ₽</span></div>}
                       {splitDetail.additionalServices.map(a => (
                         <div key={`calc-${a.name}-${a.price}`} className="flex justify-between text-xs">
                           <span className={sub}>+ {a.name}{a.priceMode === 'subtract' ? ' (вычет)' : ''}{a.isOutsource ? ` (аутсорс: ${(a.outsourceAmount || 0).toLocaleString('ru')} ₽)` : ''}</span>
@@ -10254,18 +10316,22 @@ paymentSettled: false,
                     onChange={(event) => {
                       const checked = event.target.checked;
                       setBookingForm(p => ({ ...p, isOutsource: checked }));
-                      if (checked) setBookingWorkers([]);
                     }}
                   />
                 </label>
                 {bookingForm.isOutsource && (
-                  <div>
-                    <label className={`text-xs ${sub} block mb-1`}>Сумма аутсорсеру (₽)</label>
-                    <input className={inputCls} type="number" value={numberInputValue(bookingForm.outsourceAmount)}
-                      onChange={e => setBookingForm(p => ({ ...p, outsourceAmount: numberFromInput(e.target.value) }))} />
-                  </div>
+                  <OutsourcerFields
+                    api={outsourcersApi}
+                    outsourcerId={bookingForm.outsourcerId}
+                    onOutsourcerChange={(id) => setBookingForm(p => ({ ...p, outsourcerId: id }))}
+                    amount={bookingForm.outsourceAmount}
+                    onAmountChange={(value) => setBookingForm(p => ({ ...p, outsourceAmount: value }))}
+                    price={bookingForm.price}
+                    inputCls={inputCls}
+                    sub={sub}
+                  />
                 )}
-                {!bookingForm.isOutsource && (() => {
+                {(() => {
                   const _svc = services.find(s => s.id === bookingForm.service);
                   const _isFixed = isFixedMasterService(services, _svc?.id, _svc?.name);
                   return (
@@ -10481,7 +10547,7 @@ paymentSettled: false,
                       if (w.payType === 'fixed') return `${w.workerName} · ${(w.fixedAmount || 0).toLocaleString('ru')} ₽`;
                       const _addTotal = (selectedBooking.additionalServices || []).reduce((s: number, as: any) => s + (as.priceMode === 'subtract' ? 0 : Number(as.price) || 0), 0);
                       const _legacyTotal = (selectedBooking.services || []).reduce((s: number, svc: any) => s + (Number(svc.price) || 0), 0);
-                      const _base = Math.max(0, (Number(selectedBooking.price) || 0) - _addTotal - _legacyTotal);
+                      const _base = Math.max(0, (Number(selectedBooking.price) || 0) - _addTotal - _legacyTotal - bookingMainOutsource(selectedBooking));
                       const _svcSettings = services.find(s => s.id === selectedBooking.serviceId);
                       const _earned = mainWorkerEarned(_base, _svcSettings, selectedBooking.workers, w.workerId);
                       return `${w.workerName} ${w.percent === '' ? 0 : w.percent}% · ${_earned.toLocaleString('ru')} ₽`;
@@ -10491,6 +10557,16 @@ paymentSettled: false,
                         <AlertCircle size={14} strokeWidth={1.75} className="shrink-0" />
                         <span>Напоминание: услуга «{selectedBooking.service}» назначена, но мастер не выбран. Назначьте исполнителя кнопкой «Мастера» ниже.</span>
                       </div>
+                    )}
+                    {selectedBooking.status !== 'cancelled' && (
+                      <BookingOutsourceEditor
+                        api={outsourcersApi}
+                        booking={selectedBooking}
+                        onSave={(patch) => updateBooking(selectedBooking.id, patch)}
+                        inputCls={inputCls}
+                        sub={sub}
+                        primary={primary}
+                      />
                     )}
                     <div className={sub}>Телефон: {selectedBooking.clientPhone || 'Не указан'}</div>
                     <div className={sub}>Комментарий: {selectedBooking.notes?.trim() || 'Нет'}</div>
@@ -11337,6 +11413,7 @@ paymentSettled: false,
                     { label: 'Выручка за неделю', value: kpiModal.revenue, color: accent },
                     { label: 'Доходы за неделю', value: kpiModal.incomes, color: '#06B6D4' },
                     { label: 'Расходы за неделю', value: -kpiModal.expenses, color: '#FF6B6B' },
+                    ...(kpiModal.outsource > 0 ? [{ label: 'Аутсорс за неделю', value: -kpiModal.outsource, color: '#0EA5E9' }] : []),
                     { label: 'Прибыль за неделю', value: kpiModal.profit, color: kpiModal.color },
                   ].map(row => (
                     <div key={row.label} className={`${glass} rounded-xl p-3 flex justify-between items-center`}>
@@ -11404,6 +11481,7 @@ paymentSettled: false,
                         priceMode: p.priceMode,
                         isOutsource: p.isOutsource,
                         outsourceAmount: p.outsourceAmount,
+                        outsourcerId: p.outsourcerId,
                       };
                     });
                     setOwnerAddServiceError(null);
@@ -11493,11 +11571,16 @@ paymentSettled: false,
                   />
                 </label>
                 {ownerAddServiceDraft.isOutsource && (
-                  <div className="mt-2">
-                    <label className={`text-xs ${sub} block mb-1`}>Сумма аутсорсеру (₽)</label>
-                    <input className={inputCls} type="number" min={0} value={numberInputValue(ownerAddServiceDraft.outsourceAmount)}
-                      onChange={e => setOwnerAddServiceDraft(p => ({ ...p, outsourceAmount: numberFromInput(e.target.value) }))} />
-                  </div>
+                  <OutsourcerFields
+                    api={outsourcersApi}
+                    outsourcerId={ownerAddServiceDraft.outsourcerId}
+                    onOutsourcerChange={(id) => setOwnerAddServiceDraft(p => ({ ...p, outsourcerId: id }))}
+                    amount={ownerAddServiceDraft.outsourceAmount}
+                    onAmountChange={(value) => setOwnerAddServiceDraft(p => ({ ...p, outsourceAmount: value }))}
+                    price={ownerAddServiceDraft.price}
+                    inputCls={inputCls}
+                    sub={sub}
+                  />
                 )}
               </div>
 
@@ -11684,11 +11767,16 @@ paymentSettled: false,
                   />
                 </label>
                 {ownerEditAsvcDraft.isOutsource && (
-                  <div className="mt-2">
-                    <label className={`text-xs ${sub} block mb-1`}>Сумма аутсорсеру (₽)</label>
-                    <input className={inputCls} type="number" min={0} value={numberInputValue(ownerEditAsvcDraft.outsourceAmount)}
-                      onChange={e => setOwnerEditAsvcDraft(p => ({ ...p, outsourceAmount: numberFromInput(e.target.value) }))} />
-                  </div>
+                  <OutsourcerFields
+                    api={outsourcersApi}
+                    outsourcerId={ownerEditAsvcDraft.outsourcerId}
+                    onOutsourcerChange={(id) => setOwnerEditAsvcDraft(p => ({ ...p, outsourcerId: id }))}
+                    amount={ownerEditAsvcDraft.outsourceAmount}
+                    onAmountChange={(value) => setOwnerEditAsvcDraft(p => ({ ...p, outsourceAmount: value }))}
+                    price={ownerEditAsvcDraft.price}
+                    inputCls={inputCls}
+                    sub={sub}
+                  />
                 )}
               </div>
 
@@ -12011,18 +12099,22 @@ paymentSettled: false,
                     onChange={(event) => {
                       const checked = event.target.checked;
                       setOwnerNewBookingForm(p => ({ ...p, isOutsource: checked }));
-                      if (checked) setOwnerNewBookingWorkers([]);
                     }}
                   />
                 </label>
                 {ownerNewBookingForm.isOutsource && (
-                  <div>
-                    <label className={`text-xs ${sub} block mb-1`}>Сумма аутсорсеру (₽)</label>
-                    <input className={inputCls} type="number" value={numberInputValue(ownerNewBookingForm.outsourceAmount)}
-                      onChange={e => setOwnerNewBookingForm(p => ({ ...p, outsourceAmount: numberFromInput(e.target.value) }))} />
-                  </div>
+                  <OutsourcerFields
+                    api={outsourcersApi}
+                    outsourcerId={ownerNewBookingForm.outsourcerId}
+                    onOutsourcerChange={(id) => setOwnerNewBookingForm(p => ({ ...p, outsourcerId: id }))}
+                    amount={ownerNewBookingForm.outsourceAmount}
+                    onAmountChange={(value) => setOwnerNewBookingForm(p => ({ ...p, outsourceAmount: value }))}
+                    price={ownerNewBookingForm.price}
+                    inputCls={inputCls}
+                    sub={sub}
+                  />
                 )}
-                {!ownerNewBookingForm.isOutsource && (() => {
+                {(() => {
                   const _svc = services.find(s => s.id === ownerNewBookingForm.serviceId);
                   const _isFixed = isFixedMasterService(services, _svc?.id, _svc?.name);
                   return (
@@ -12209,7 +12301,7 @@ paymentSettled: false,
                     </motion.div>
                   )}
                 </AnimatePresence>
-                {!ownerNewBookingForm.isOutsource && !isFixedMasterService(services, ownerNewBookingForm.service, services.find(s => s.id === ownerNewBookingForm.service)?.name) && ownerNewBookingWorkers.some(w => w.payType !== 'fixed') && totalOwnerNewBookingPercent > 100 && (
+                {!isFixedMasterService(services, ownerNewBookingForm.service, services.find(s => s.id === ownerNewBookingForm.service)?.name) && ownerNewBookingWorkers.some(w => w.payType !== 'fixed') && totalOwnerNewBookingPercent > 100 && (
                   <div className="flex items-center gap-2 text-red-500 text-xs"><AlertCircle size={14} strokeWidth={1.75} />Сумма процентов мастеров превышает 100%</div>
                 )}
                 {ownerNewBookingErrors.general && (
@@ -12253,10 +12345,10 @@ paymentSettled: false,
                 </label>
               </div>
               <div className="p-4 space-y-2">
-                <button onClick={() => { void handleSaveOwnerNewBooking(true); }} disabled={!ownerNewBookingForm.serviceId || (!ownerNewBookingForm.isOutsource && ownerNewBookingWorkers.some(w => w.payType !== 'fixed') && totalOwnerNewBookingPercent > 100) || ownerNewBookingSaving} className="w-full py-3.5 rounded-2xl font-semibold text-white disabled:opacity-50 min-h-[44px] min-w-[44px]" style={{ background: primary }}>
+                <button onClick={() => { void handleSaveOwnerNewBooking(true); }} disabled={!ownerNewBookingForm.serviceId || (ownerNewBookingWorkers.some(w => w.payType !== 'fixed') && totalOwnerNewBookingPercent > 100) || ownerNewBookingSaving} className="w-full py-3.5 rounded-2xl font-semibold text-white disabled:opacity-50 min-h-[44px] min-w-[44px]" style={{ background: primary }}>
                   {ownerNewBookingSaving ? 'Сохранение...' : 'Сохранить и уведомить'}
                 </button>
-                <button onClick={() => { void handleSaveOwnerNewBooking(false); }} disabled={!ownerNewBookingForm.serviceId || (!ownerNewBookingForm.isOutsource && ownerNewBookingWorkers.some(w => w.payType !== 'fixed') && totalOwnerNewBookingPercent > 100) || ownerNewBookingSaving} className={`w-full py-3 rounded-2xl font-medium ${glass} disabled:opacity-50 min-h-[44px] min-w-[44px]`}>
+                <button onClick={() => { void handleSaveOwnerNewBooking(false); }} disabled={!ownerNewBookingForm.serviceId || (ownerNewBookingWorkers.some(w => w.payType !== 'fixed') && totalOwnerNewBookingPercent > 100) || ownerNewBookingSaving} className={`w-full py-3 rounded-2xl font-medium ${glass} disabled:opacity-50 min-h-[44px] min-w-[44px]`}>
                   Сохранить без уведомления
                 </button>
               </div>
@@ -12574,6 +12666,7 @@ paymentSettled: false,
             service: servicePayloadForPreview,
             samplePrice: simPriceNum, samplePercent: simPercentNum,
             complaintPenaltyPp: simComplaintNum, dops: simDopsBody,
+            outsourceAmount: Math.max(0, Number(simOutsource) || 0) || null,
           };
           const simKey = JSON.stringify(simBody);
           simDraftRef.current = { key: simKey, body: simBody };
@@ -13025,6 +13118,10 @@ paymentSettled: false,
                           <label className={`text-xs ${sub} block mb-1`}>Жалоба −п.п.</label>
                           <input className={inputCls} type="number" min={0} max={100} placeholder="0" value={simComplaintPp} onChange={e => setSimComplaintPp(e.target.value)} />
                         </div>
+                        <div>
+                          <label className={`text-xs ${sub} block mb-1`}>Аутсорс (₽)</label>
+                          <input className={inputCls} type="number" min={0} placeholder="0" value={simOutsource} onChange={e => setSimOutsource(e.target.value)} />
+                        </div>
                         <div className="flex items-end">
                           <label className="flex items-center gap-2 text-xs pb-2">
                             <SwitchToggle value={simCredit} onChange={() => setSimCredit(v => !v)} />
@@ -13181,6 +13278,7 @@ paymentSettled: false,
                                 <div className={`text-[10px] font-semibold uppercase tracking-wide mb-1 ${sub}`}>Ход расчёта</div>
                                 {(sim.steps ?? []).map((st, si) => {
                                   const stepLabel = st.step === 'start' ? 'Старт'
+                                    : st.step === 'outsource' ? 'Аутсорс'
                                     : st.step === 'dop' ? `Доп «${st.name}»`
                                     : st.step === 'dop_masters' ? 'Мастера допов'
                                     : (ORDER_STEPS.find(o => o.id === st.step)?.label ?? st.step);

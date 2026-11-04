@@ -114,3 +114,19 @@ export function formulaTailError(svc: SplitFormulaSettings): string | null {
   }
   return `владельцам ${ownerValue}% остатка, а копилка не забирает остаток — ${100 - ownerValue}% остатка никому не уйдёт. Поставьте владельцам «Весь остаток» или копилке «Весь остаток».`;
 }
+
+// Всё, что запись отдаёт аутсорсерам: основная услуга и допы. Это не наша прибыль.
+export function bookingOutsourceTotal(booking: {
+  isOutsource?: boolean;
+  outsourceAmount?: number | null;
+  additionalServices?: Array<{ isOutsource?: boolean; outsourceAmount?: number | null }>;
+}): number {
+  return bookingMainOutsource(booking) + (booking.additionalServices || []).reduce(
+    (sum, item) => sum + (item.isOutsource ? Math.max(0, Number(item.outsourceAmount) || 0) : 0), 0,
+  );
+}
+
+// Сумма аутсорса основной услуги: снимается с цены до деления остатка.
+export function bookingMainOutsource(booking: { isOutsource?: boolean; outsourceAmount?: number | null }): number {
+  return booking.isOutsource ? Math.max(0, Number(booking.outsourceAmount) || 0) : 0;
+}

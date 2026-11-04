@@ -73,7 +73,9 @@ function workerPaymentLabel(paymentType: PaymentType, settled: boolean) {
 function bookingBasePrice(booking: Booking) {
   const additionalTotal = (booking.additionalServices || []).reduce((s, as) => s + (as.priceMode === 'subtract' ? 0 : as.price), 0);
   const servicesTotal = (booking.services || []).reduce((s, svc) => s + svc.price, 0);
-  return Math.max(0, booking.price - additionalTotal - servicesTotal);
+  const base = Math.max(0, booking.price - additionalTotal - servicesTotal);
+  // Аутсорс снимается до деления; суммы аутсорса мастеру не отдаются, только база.
+  return Math.min(base, booking.mainBaseAmount ?? base);
 }
 
 // Доля мастера по основной услуге (та же логика, что во вкладке «Заработок»).
@@ -354,10 +356,7 @@ export function WorkerApp() {
                             <span className={`text-sm font-semibold ${as.priceMode === 'subtract' ? 'text-red-500' : ''}`}>{as.priceMode === 'subtract' ? '- ' : '+ '}{as.price.toLocaleString('ru')} ₽</span>
                           </div>
                           {isOutsource ? (
-                            <div className="flex justify-between items-center mt-0.5">
-                              <span className={`text-xs ${sub}`}>Аутсорс · аутсорсеру</span>
-                              <span className="text-xs font-medium text-red-500">- {(as.outsourceAmount || 0).toLocaleString('ru')} ₽</span>
-                            </div>
+                            <div className={`text-xs ${sub} mt-0.5`}>Аутсорс</div>
                           ) : isMyService && as.workers.filter(w => w.workerId === workerId).map(w => (
                             <div key={w.workerId} className="flex justify-between items-center mt-0.5">
                               <span className={`text-xs ${sub}`}>Ваша доля: {w.payType === 'fixed' ? `${(w.fixedAmount || 0).toLocaleString('ru')} ₽` : `${w.percent}%`}</span>
@@ -382,12 +381,6 @@ export function WorkerApp() {
                     {selectedTask.paymentSettled ? 'Оплачено' : 'Не оплачено'}
                   </span>
                 </div>
-                {selectedTask.isOutsource && (
-                  <div className="flex justify-between items-center mt-1 text-sm">
-                    <span className={sub}>Аутсорс · аутсорсеру</span>
-                    <span className="text-red-500">- {(selectedTask.outsourceAmount || 0).toLocaleString('ru')} ₽</span>
-                  </div>
-                )}
               </div>
               {(() => {
                 const myBaseLink = selectedTask.workers.find(w => w.workerId === workerId);

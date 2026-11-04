@@ -164,6 +164,7 @@ from .models import (
 
     Notification,
 
+    Outsourcer,
     OwnerProfitShare,
 
     Penalty,
@@ -318,6 +319,9 @@ from .schemas import (
 
     AuthSessionPayload,
 
+    OutsourcerCreateRequest,
+    OutsourcerPayload,
+    OutsourcerUpdateRequest,
     OwnerProfitShareItem,
 
     OwnerProfitShareSummary,
@@ -4924,6 +4928,8 @@ def _booking_payload(
 
             outsourceAmount=asvc.outsource_amount,
 
+            outsourcerId=asvc.outsourcer_id,
+
             createdAt=asvc.created_at,
 
             workers=[
@@ -5040,7 +5046,29 @@ def _booking_payload(
         source=getattr(booking, "source", None),
         referralSource=getattr(booking, "referral_source", None) or "",
         isRepeatVisit=bool(getattr(booking, "is_repeat_visit", False)),
+        isOutsource=bool(booking.is_outsource),
+        outsourceAmount=booking.outsource_amount,
+        outsourcerId=booking.outsourcer_id,
+        mainBaseAmount=_booking_main_base(booking),
     )
+
+
+# Роли, которые заполняют записи и видят суммы аутсорса (отчёты — только owner/accountant).
+OUTSOURCE_VISIBLE_ROLES = {"owner", "admin", "accountant"}
+
+
+def _hide_outsource_for_role(payload: BookingPayload, role: str | None) -> BookingPayload:
+    """Мастер и клиент не видят суммы аутсорса и исполнителя. role=None — без фильтра."""
+    if role is None or role in OUTSOURCE_VISIBLE_ROLES:
+        return payload
+    hidden = payload.model_copy(
+        update={"isOutsource": False, "outsourceAmount": None, "outsourcerId": None}
+    )
+    hidden.additionalServices = [
+        item.model_copy(update={"outsourceAmount": None, "outsourcerId": None})
+        for item in payload.additionalServices
+    ]
+    return hidden
 
 
 
@@ -6024,7 +6052,7 @@ def _build_bootstrap(
 
     bookings = [
 
-        _booking_payload(item, complaints_by_worker)
+        _hide_outsource_for_role(_booking_payload(item, complaints_by_worker), role)
 
         for item in db.scalars(bookings_query).unique().all()
 
@@ -6962,7 +6990,9 @@ def _ensure_subtract_fits_net(db: Session, booking: Booking, new_subtract_total:
 
     )
 
-    net = max(0, (booking.price or 0) - add_total - _booking_materials_cost(db, booking))
+    main_price = max(0, (booking.price or 0) - add_total)
+    main_outsource = _booking_main_outsource(booking, main_price)
+    net = max(0, main_price - main_outsource - _booking_materials_cost(db, booking))
 
     if new_subtract_total > net:
 
@@ -6978,13 +7008,17 @@ def _ensure_subtract_fits_net(db: Session, booking: Booking, new_subtract_total:
 
 
 
-def _booking_payload_for_response(db: Session, booking: Booking) -> BookingPayload:
+def _booking_payload_for_response(
+    db: Session, booking: Booking, role: str | None = None
+) -> BookingPayload:
 
     worker_ids = {link.worker_id for link in booking.worker_links}
 
     penalties = _load_penalties(db, worker_ids=worker_ids) if worker_ids else []
 
-    return _booking_payload(booking, _complaints_by_worker(penalties))
+    return _hide_outsource_for_role(
+        _booking_payload(booking, _complaints_by_worker(penalties)), role
+    )
 
 
 
@@ -12897,7 +12931,7 @@ def create_booking(
 
         if existing_booking is not None:
 
-            return _booking_payload_for_response(db, existing_booking)
+            return _booking_payload_for_response(db, existing_booking, session_data["role"])
 
     is_box_rental = _is_box_rental_service(service)
 
@@ -13251,6 +13285,13 @@ def create_booking(
 
     )
 
+    # Клиент и мастер аутсорс не задают; поля принимаем только от персонала.
+    if payload.isOutsource and session_data["role"] in OUTSOURCE_VISIBLE_ROLES:
+        booking.is_outsource = True
+        booking.outsource_amount = payload.outsourceAmount
+        booking.outsourcer_id = _resolve_outsourcer_id(db, payload.outsourcerId)
+        _ensure_main_outsource_fits(booking)
+
     db.add(booking)
 
     try:
@@ -13412,7 +13453,7 @@ def create_booking(
 
         _google_sync_booking(db, booking, action="upsert")
 
-    return _booking_payload_for_response(db, booking)
+    return _booking_payload_for_response(db, booking, session_data["role"])
 
 
 
@@ -13569,6 +13610,76 @@ def _asvc_paid_amount(asvc: BookingAdditionalService) -> int:
     return total
 
 
+def _booking_main_outsource(booking: Booking, main_price: int) -> int:
+    """Сколько уходит аутсорсеру с основной услуги: не больше её цены."""
+    if not getattr(booking, "is_outsource", False):
+        return 0
+    return min(max(0, int(booking.outsource_amount or 0)), max(0, int(main_price or 0)))
+
+
+def _booking_main_base(booking: Booking) -> int:
+    """Цена основной услуги за вычетом аутсорса: от неё считается доля мастера."""
+    additional_total = sum(
+        int(asvc.price or 0) for asvc in (booking.additional_services or []) if asvc.price_mode != "subtract"
+    )
+    main_price = max(0, int(booking.price or 0) - additional_total)
+    return main_price - _booking_main_outsource(booking, main_price)
+
+
+def _ensure_main_outsource_fits(booking: Booking) -> None:
+    """Сумма аутсорса основной услуги: больше нуля и в пределах её цены."""
+    if not booking.is_outsource:
+        return
+    amount = int(booking.outsource_amount or 0)
+    if amount <= 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Укажите сумму аутсорсеру",
+        )
+    additional_total = sum(
+        asvc.price for asvc in (booking.additional_services or []) if asvc.price_mode != "subtract"
+    )
+    main_price = max(0, (booking.price or 0) - additional_total)
+    if amount > main_price:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Сумма аутсорсеру {amount} ₽ больше цены услуги {main_price} ₽",
+        )
+
+
+def _resolve_outsourcer_id(
+    db: Session, outsourcer_id: str | None, *, current_id: str | None = None
+) -> str | None:
+    """Проверяет ссылку на исполнителя; уже привязанного отключённого не отвергаем."""
+    value = (outsourcer_id or "").strip()
+    if not value:
+        return None
+    if value == current_id:
+        return value
+    item = db.get(Outsourcer, value)
+    if item is None or not item.active:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Аутсорсер не найден",
+        )
+    return value
+
+
+def _booking_outsource_total(booking: Booking) -> int:
+    """Всё, что запись отдаёт аутсорсерам: основная услуга и допы."""
+    additional = booking.additional_services or []
+    additional_total = sum(int(a.price or 0) for a in additional if a.price_mode != "subtract")
+    main_price = max(0, int(booking.price or 0) - additional_total)
+    return _booking_main_outsource(booking, main_price) + sum(
+        int(a.outsource_amount or 0) for a in additional if a.is_outsource
+    )
+
+
+def _outsourcer_name(db: Session, outsourcer_id: str | None) -> str:
+    item = db.get(Outsourcer, outsourcer_id) if outsourcer_id else None
+    return item.name if item is not None else ""
+
+
 def _dop_piggy_bank(dop_svc: Service | None, fallback_group: str) -> str:
     """Банк доп-услуги: piggyTarget допа, иначе её resource_group.
 
@@ -13656,7 +13767,7 @@ def _booking_money_split(
 ) -> dict:
     """Единая модель распределения денег по записи.
 
-    Порядок: цена → материалы → мастера → копилка → владельцы.
+    Порядок: цена → аутсорс → материалы → мастера → копилка → владельцы.
     Фикс/процент мастера — общая сумма на услугу и делится между мастерами
     пропорционально их процентам из профиля (новичок с меньшим % получает меньше).
     service_override — транзитная услуга для split-preview (без записи в БД).
@@ -13685,8 +13796,10 @@ def _booking_money_split(
         if asvc.price_mode != "subtract"
     )
     main_price = max(0, booking.price - additional_total)
+    # Аутсорс основной услуги уходит исполнителю до деления; main_price остаётся валовым.
+    main_outsource = _booking_main_outsource(booking, main_price)
     materials_cost = _booking_materials_cost(db, booking)
-    net = max(0, main_price - materials_cost)
+    net = max(0, main_price - main_outsource - materials_cost)
     # Вычитаемые доп услуги уменьшают базу расчёта зп мастера/копилки/владельцев
     subtract_total = sum(
         asvc.price
@@ -13988,9 +14101,11 @@ def _booking_money_split(
 
     if pipeline_mode:
         # Конвейер: каждый шаг забирает свою сумму из текущего остатка
-        pool = max(0, main_price - subtract_total)
+        pool = max(0, main_price - main_outsource - subtract_total)
         pool_start = pool
-        trace.append({"step": "start", "name": "", "amount": 0, "pool_after": pool, "bank": ""})
+        trace.append({"step": "start", "name": "", "amount": 0, "pool_after": pool + main_outsource, "bank": ""})
+        if main_outsource > 0:
+            trace.append({"step": "outsource", "name": "", "amount": main_outsource, "pool_after": pool, "bank": ""})
         materials_deducted = 0
         master_by_worker: dict[str, int] = {}
         master_total = 0
@@ -14031,8 +14146,10 @@ def _booking_money_split(
     else:
         # Классический порядок: материалы → мастера → копилка → владельцы
         split_base_report = split_base
-        trace_pool0 = max(0, main_price - subtract_total)
-        trace.append({"step": "start", "name": "", "amount": 0, "pool_after": trace_pool0, "bank": ""})
+        trace_pool0 = max(0, main_price - main_outsource - subtract_total)
+        trace.append({"step": "start", "name": "", "amount": 0, "pool_after": trace_pool0 + main_outsource, "bank": ""})
+        if main_outsource > 0:
+            trace.append({"step": "outsource", "name": "", "amount": main_outsource, "pool_after": trace_pool0, "bank": ""})
         trace.append({"step": "materials", "name": "", "amount": max(0, trace_pool0 - split_base),
                       "pool_after": split_base, "bank": ""})
         master_by_worker, master_total, main_master_total = _compute_master(split_base)
@@ -14071,6 +14188,7 @@ def _booking_money_split(
     return {
         "resource_group": rg,
         "main_price": main_price,
+        "main_outsource": main_outsource,
         "materials_cost": materials_cost,
         "net": net,
         "split_base": split_base_report,
@@ -14164,6 +14282,7 @@ def _booking_split_auto(
             return {
                 "resource_group": str(frozen["resource_group"]),
                 "main_price": int(frozen["main_price"]),
+                "main_outsource": int(snap.get("main_outsource") or 0),
                 "materials_cost": int(frozen["materials_cost"]),
                 "net": int(frozen["net"]),
                 "split_base": int(frozen["split_base"]),
@@ -15044,20 +15163,28 @@ def update_booking(
 
 
 
-    # F-004: is_outsource/outsource_amount живут на BookingAdditionalService, колонок
-    # на Booking нет — setattr создал бы Attributes, потерянные при commit.
-    # Отклоняем явно вместо тихой потери данных.
-    if "isOutsource" in updates:
-
-        raise HTTPException(
-
-            status_code=status.HTTP_400_BAD_REQUEST,
-
-            detail="Флаг аутсорса задаётся на уровне доп. услуг: POST/PATCH /api/bookings/{booking_id}/additional-services",
-
-        )
-
-    updates.pop("outsourceAmount", None)
+    # Аутсорс основной услуги: поля не пишем общим циклом — сумма и исполнитель
+    # сбрасываются при снятии флага, а менять их может только персонал.
+    outsource_fields = {
+        key: updates.pop(key) for key in ("isOutsource", "outsourceAmount", "outsourcerId") if key in updates
+    }
+    previous_outsource = (bool(booking.is_outsource), booking.outsource_amount, booking.outsourcer_id)
+    previous_price = booking.price
+    if outsource_fields:
+        if session_data["role"] not in OUTSOURCE_VISIBLE_ROLES:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+        if outsource_fields.get("isOutsource") is not None:
+            booking.is_outsource = bool(outsource_fields["isOutsource"])
+        if booking.is_outsource:
+            if "outsourceAmount" in outsource_fields:
+                booking.outsource_amount = outsource_fields["outsourceAmount"]
+            if "outsourcerId" in outsource_fields:
+                booking.outsourcer_id = _resolve_outsourcer_id(
+                    db, outsource_fields["outsourcerId"], current_id=booking.outsourcer_id
+                )
+        else:
+            booking.outsource_amount = None
+            booking.outsourcer_id = None
 
     for field, value in updates.items():
 
@@ -15145,6 +15272,7 @@ def update_booking(
         asvc.price for asvc in (booking.additional_services or [])
         if asvc.price_mode == "subtract"
     )
+    _ensure_main_outsource_fits(booking)
     if _current_subtract > 0:
         _ensure_subtract_fits_net(db, booking, _current_subtract)
 
@@ -15285,6 +15413,18 @@ def update_booking(
         # Заморозка: дальнейшая смена настроек услуги историю не перепишет.
         _freeze_booking_split(db, booking)
 
+    elif booking.status == "completed" and (
+        previous_outsource != (bool(booking.is_outsource), booking.outsource_amount, booking.outsourcer_id)
+        or (booking.is_outsource and booking.price != previous_price)
+    ):
+        # Правка аутсорса завершённой записи: пересчёт проводок и снапшота.
+        # Выплаченные доли владельцев и зарплатные проводки сверка не трогает.
+        if booking.payment_settled:
+            _reconcile_piggy_for_booking(db, booking)
+            if (booking.payment_type or "") != "credit":
+                _reconcile_owner_shares_for_booking(db, booking)
+        _freeze_booking_split(db, booking)
+
 
 
     if settings.outbox_google_enabled:
@@ -15397,7 +15537,7 @@ def update_booking(
 
         _google_sync_booking(db, booking, action="upsert")
 
-    return _booking_payload_for_response(db, booking)
+    return _booking_payload_for_response(db, booking, session_data["role"])
 
 
 
@@ -15696,6 +15836,8 @@ def add_booking_additional_service(
 
         outsource_amount=payload.outsourceAmount,
 
+        outsourcer_id=_resolve_outsourcer_id(db, payload.outsourcerId) if payload.isOutsource else None,
+
         created_at=_now(),
 
     )
@@ -15859,8 +16001,12 @@ def update_booking_additional_service(
         asvc.is_outsource = payload.isOutsource
         if payload.isOutsource:
             asvc.worker_links.clear()
+        else:
+            asvc.outsourcer_id = None
     if payload.outsourceAmount is not None:
         asvc.outsource_amount = payload.outsourceAmount
+    if payload.outsourcerId is not None and asvc.is_outsource:
+        asvc.outsourcer_id = _resolve_outsourcer_id(db, payload.outsourcerId, current_id=asvc.outsourcer_id)
 
     if payload.workers is not None:
         _ensure_worker_percent_cap(payload.workers)
@@ -17698,6 +17844,7 @@ def get_piggy_bank(
         add_dops = [a for a in (booking.additional_services or []) if (getattr(a, "price_mode", "add") or "add") != "subtract" and (a.price or 0) > 0]
         add_total = sum(int(a.price or 0) for a in add_dops)
         main_price = max(0, int(booking.price or 0) - add_total)
+        main_price -= _booking_main_outsource(booking, main_price)
         svc = services_map.get(booking.service_id)
         # Реальный сплит вместо захардкоженных 10/90 и 40/60: учитывает
         # материалы, вычеты, жалобы, кастомные режимы услуги и ручные правки.
@@ -20223,7 +20370,10 @@ def get_wallet(
 
     total_expense = sum(e.amount for e in expenses)
 
-    profit = revenue + total_income - total_expense
+    # Деньги аутсорсера — не наша прибыль (основная услуга и допы).
+    outsource_total = sum(_booking_outsource_total(b) for b in completed_bookings)
+
+    profit = revenue + total_income - total_expense - outsource_total
 
 
 
@@ -20260,6 +20410,8 @@ def get_wallet(
         totalIncome=total_income,
 
         totalExpense=total_expense,
+
+        outsourceTotal=outsource_total,
 
         profit=profit,
 
@@ -20739,7 +20891,7 @@ def get_worker_calendar_bookings(
                     status=asvc.status or "pending",
                     priceMode=asvc.price_mode or "add",
                     isOutsource=bool(asvc.is_outsource),
-                    outsourceAmount=asvc.outsource_amount,
+                    outsourceAmount=None,
                     createdAt=asvc.created_at,
                     workers=[
                         AdditionalServiceWorkerPayload(
@@ -20899,7 +21051,7 @@ def search_worker_cars(
                     status=asvc.status or "pending",
                     priceMode=asvc.price_mode or "add",
                     isOutsource=bool(asvc.is_outsource),
-                    outsourceAmount=asvc.outsource_amount,
+                    outsourceAmount=None,
                     createdAt=asvc.created_at,
                     workers=[
                         AdditionalServiceWorkerPayload(
@@ -21578,6 +21730,8 @@ def preview_service_split(
         box="",
         payment_type="cash",
         payment_settled=True,
+        is_outsource=bool(payload.outsourceAmount),
+        outsource_amount=payload.outsourceAmount,
     )
     booking.worker_links = [
         BookingWorker(
@@ -22890,22 +23044,13 @@ def save_admin_worker_payroll(
 
 
 
-@app.get("/api/owner/outsource/payroll")
-def get_owner_outsource_payroll(
-    period: str = "month",
-    date_from: str | None = None,
-    date_to: str | None = None,
-    session_data: dict = Depends(_require_session),
-    db: Session = Depends(get_db),
-) -> dict:
-    """Сумма, потраченная на аутсорс-исполнителей доп. услуг за период (по услугам).
+# Строка «Без исполнителя» в отчётах: старые записи и допы без привязки.
+OUTSOURCE_NO_EXECUTOR_ID = "none"
 
-    Учитываются только завершённые записи (status=completed) и доп. услуги
-    с флагом is_outsource. Потраченная сумма = outsource_amount услуги.
-    """
-    _ensure_staff_role(session_data, {"owner", "admin", "accountant"})
-    valid_periods = {"day", "week", "month", "all", "custom"}
-    if period not in valid_periods:
+
+def _outsource_period_keys(period: str, date_from: str | None, date_to: str | None) -> tuple[str, str]:
+    """Границы периода отчётов аутсорса как сортируемые YYYYMMDD."""
+    if period not in {"day", "week", "month", "all", "custom"}:
         raise HTTPException(status_code=400, detail="Invalid period")
     if period == "custom":
         if not date_from or not date_to:
@@ -22914,48 +23059,254 @@ def get_owner_outsource_payroll(
         date_to = _parse_booking_date_param(date_to)
     else:
         date_from, date_to = _salary_date_range(period, custom_from=date_from, custom_to=date_to)
-    date_from_key = date_from[6:10] + date_from[3:5] + date_from[0:2]
-    date_to_key = date_to[6:10] + date_to[3:5] + date_to[0:2]
+    return (
+        date_from[6:10] + date_from[3:5] + date_from[0:2],
+        date_to[6:10] + date_to[3:5] + date_to[0:2],
+    )
 
-    bookings_q = (
+
+def _outsource_movements(
+    db: Session, period: str, date_from: str | None, date_to: str | None
+) -> list[dict]:
+    """Начисления аутсорса за период: только завершённые записи, основная услуга и допы."""
+    from_key, to_key = _outsource_period_keys(period, date_from, date_to)
+    query = (
         select(Booking)
-        .options(
-            joinedload(Booking.additional_services)
-            .joinedload(BookingAdditionalService.worker_links)
-        )
+        .options(joinedload(Booking.additional_services))
         .where(
             Booking.deleted_at.is_(None),
             Booking.status == "completed",
-            Booking.additional_services.any(BookingAdditionalService.is_outsource.is_(True)),
+            or_(
+                Booking.is_outsource.is_(True),
+                Booking.additional_services.any(BookingAdditionalService.is_outsource.is_(True)),
+            ),
         )
     )
-    if period == "all":
-        bookings = db.scalars(bookings_q).unique().all()
-    else:
+    if period != "all":
         date_col_key = (
             func.substr(Booking.date, 7, 4)
             .concat(func.substr(Booking.date, 4, 2))
             .concat(func.substr(Booking.date, 1, 2))
         )
-        bookings = db.scalars(
-            bookings_q.where(date_col_key >= date_from_key, date_col_key <= date_to_key)
-        ).unique().all()
+        query = query.where(date_col_key >= from_key, date_col_key <= to_key)
 
-    agg: dict[str, dict] = {}
-    for booking in bookings:
+    rows: list[dict] = []
+    for booking in db.scalars(query).unique().all():
+        def _row(name: str, price: int, paid: int, outsourcer_id: str | None) -> dict:
+            return {
+                "bookingId": booking.id,
+                "date": booking.date,
+                "time": booking.time or "",
+                "clientName": booking.client_name or "",
+                "service": name,
+                "price": price,
+                "paid": paid,
+                "left": max(0, price - paid),
+                "outsourcerId": outsourcer_id or OUTSOURCE_NO_EXECUTOR_ID,
+            }
+
+        additional_total = sum(
+            int(a.price or 0) for a in (booking.additional_services or []) if a.price_mode != "subtract"
+        )
+        main_price = max(0, int(booking.price or 0) - additional_total)
+        main_outsource = _booking_main_outsource(booking, main_price)
+        if main_outsource > 0:
+            rows.append(_row(booking.service, main_price, main_outsource, booking.outsourcer_id))
         for asvc in booking.additional_services or []:
-            if not asvc.is_outsource:
-                continue
-            amount = int(asvc.outsource_amount or 0)
-            row = agg.setdefault(asvc.name, {"name": asvc.name, "count": 0, "total": 0})
-            row["count"] += 1
-            row["total"] += amount
+            if asvc.is_outsource:
+                rows.append(
+                    _row(asvc.name, int(asvc.price or 0), int(asvc.outsource_amount or 0), asvc.outsourcer_id)
+                )
+    rows.sort(key=lambda r: (r["date"][6:10] + r["date"][3:5] + r["date"][0:2], r["time"]), reverse=True)
+    return rows
+
+
+@app.get("/api/owner/outsource/payroll")
+def get_owner_outsource_payroll(
+    period: str = "month",
+    date_from: str | None = None,
+    date_to: str | None = None,
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Сумма, потраченная на аутсорс за период (по услугам)."""
+    _ensure_staff_role(session_data, {"owner", "accountant"})
+    agg: dict[str, dict] = {}
+    for item in _outsource_movements(db, period, date_from, date_to):
+        row = agg.setdefault(item["service"], {"name": item["service"], "count": 0, "total": 0})
+        row["count"] += 1
+        row["total"] += item["paid"]
 
     rows = sorted(agg.values(), key=lambda r: r["total"], reverse=True)
     return {
         "name": "Аутсорс",
         "total": sum(r["total"] for r in rows),
         "rows": rows,
+    }
+
+
+def _outsourcer_payload(item: Outsourcer, *, full: bool = True) -> OutsourcerPayload:
+    return OutsourcerPayload(
+        id=item.id,
+        name=item.name,
+        phone=(item.phone or "") if full else "",
+        note=(item.note or "") if full else "",
+        active=bool(item.active),
+    )
+
+
+def _ensure_outsourcer_name_free(db: Session, name: str, *, exclude_id: str | None = None) -> None:
+    wanted = name.casefold()
+    for item in db.scalars(select(Outsourcer)).all():
+        if item.id != exclude_id and (item.name or "").strip().casefold() == wanted:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Аутсорсер «{item.name}» уже есть",
+            )
+
+
+@app.get("/api/outsourcers", response_model=list[OutsourcerPayload])
+def list_outsourcers(
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> list[OutsourcerPayload]:
+    """Справочник для выбора в записи. Админу — только имена, контакты у владельца и бухгалтера."""
+    _ensure_staff_role(session_data, OUTSOURCE_VISIBLE_ROLES)
+    full = session_data["role"] != "admin"
+    items = db.scalars(select(Outsourcer).order_by(Outsourcer.name.asc())).all()
+    return [_outsourcer_payload(item, full=full) for item in items]
+
+
+@app.post("/api/outsourcers", response_model=OutsourcerPayload)
+def create_outsourcer(
+    payload: OutsourcerCreateRequest,
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> OutsourcerPayload:
+    _ensure_staff_role(session_data, OUTSOURCE_VISIBLE_ROLES)
+    name = payload.name.strip()
+    if not name:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Укажите имя аутсорсера")
+    _ensure_outsourcer_name_free(db, name)
+    item = Outsourcer(
+        id=f"out-{uuid4()}",
+        name=name,
+        phone=payload.phone.strip(),
+        note=payload.note.strip() or None,
+        active=True,
+        created_at=_now(),
+    )
+    db.add(item)
+    log_action(db, action="outsourcer.create", session_data=session_data, object_type="outsourcer", object_id=item.id)
+    db.commit()
+    return _outsourcer_payload(item, full=session_data["role"] != "admin")
+
+
+@app.patch("/api/outsourcers/{outsourcer_id}", response_model=OutsourcerPayload)
+def update_outsourcer(
+    outsourcer_id: str,
+    payload: OutsourcerUpdateRequest,
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> OutsourcerPayload:
+    _ensure_staff_role(session_data, {"owner", "accountant"})
+    item = db.get(Outsourcer, outsourcer_id)
+    if item is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Аутсорсер не найден")
+    if payload.name is not None:
+        name = payload.name.strip()
+        if not name:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Укажите имя аутсорсера")
+        _ensure_outsourcer_name_free(db, name, exclude_id=item.id)
+        item.name = name
+    if payload.phone is not None:
+        item.phone = payload.phone.strip()
+    if payload.note is not None:
+        item.note = payload.note.strip() or None
+    if payload.active is not None:
+        item.active = payload.active
+    log_action(db, action="outsourcer.update", session_data=session_data, object_type="outsourcer", object_id=item.id)
+    db.commit()
+    return _outsourcer_payload(item)
+
+
+@app.get("/api/owner/outsourcers/report")
+def get_outsourcers_report(
+    period: str = "month",
+    date_from: str | None = None,
+    date_to: str | None = None,
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Итоги по исполнителям за период: сколько работ, цена клиенту, отдано, осталось нам."""
+    _ensure_staff_role(session_data, {"owner", "accountant"})
+    agg: dict[str, dict] = {
+        item.id: {
+            "id": item.id,
+            "name": item.name,
+            "phone": item.phone or "",
+            "note": item.note or "",
+            "active": bool(item.active),
+            "count": 0,
+            "price": 0,
+            "paid": 0,
+            "left": 0,
+        }
+        for item in db.scalars(select(Outsourcer)).all()
+    }
+    for line in _outsource_movements(db, period, date_from, date_to):
+        row = agg.get(line["outsourcerId"])
+        if row is None:
+            row = agg.setdefault(
+                OUTSOURCE_NO_EXECUTOR_ID,
+                {
+                    "id": OUTSOURCE_NO_EXECUTOR_ID,
+                    "name": "Без исполнителя",
+                    "phone": "",
+                    "note": "",
+                    "active": True,
+                    "count": 0,
+                    "price": 0,
+                    "paid": 0,
+                    "left": 0,
+                },
+            )
+        row["count"] += 1
+        row["price"] += line["price"]
+        row["paid"] += line["paid"]
+        row["left"] += line["left"]
+    rows = sorted(agg.values(), key=lambda r: (-r["paid"], r["name"]))
+    return {
+        "rows": rows,
+        "totalPrice": sum(r["price"] for r in rows),
+        "totalPaid": sum(r["paid"] for r in rows),
+        "totalLeft": sum(r["left"] for r in rows),
+    }
+
+
+@app.get("/api/owner/outsourcers/{outsourcer_id}/movements")
+def get_outsourcer_movements(
+    outsourcer_id: str,
+    period: str = "month",
+    date_from: str | None = None,
+    date_to: str | None = None,
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Движения по одному исполнителю; id «none» — записи без исполнителя."""
+    _ensure_staff_role(session_data, {"owner", "accountant"})
+    if outsourcer_id != OUTSOURCE_NO_EXECUTOR_ID and db.get(Outsourcer, outsourcer_id) is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Аутсорсер не найден")
+    rows = [
+        line
+        for line in _outsource_movements(db, period, date_from, date_to)
+        if line["outsourcerId"] == outsourcer_id
+    ]
+    return {
+        "rows": rows,
+        "totalPrice": sum(r["price"] for r in rows),
+        "totalPaid": sum(r["paid"] for r in rows),
+        "totalLeft": sum(r["left"] for r in rows),
     }
 
 
@@ -23670,6 +24021,8 @@ def _booking_money_split_detail(db: Session, booking: Booking) -> BookingMoneySp
         paymentSettled=booking.payment_settled,
         resourceGroup=split["resource_group"],
         mainPrice=main_price,
+        mainOutsourceAmount=int(split.get("main_outsource") or 0),
+        mainOutsourcerName=_outsourcer_name(db, booking.outsourcer_id) if booking.is_outsource else "",
         additionalServices=[
             BookingAdditionalServiceItem(
                 name=a.name,
@@ -24463,7 +24816,7 @@ def get_owner_money_flow(
             int(a.outsource_amount or 0)
             for a in (b.additional_services or [])
             if a.is_outsource
-        )
+        ) + int(detail.mainOutsourceAmount or 0)
         distribution = MoneyFlowDistribution(
             materialsCost=int(detail.materialsCost or 0),
             masterTotal=int(detail.masterTotal or 0),

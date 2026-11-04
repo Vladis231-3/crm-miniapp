@@ -1,8 +1,7 @@
-"""F-004: PATCH /api/bookings/{id} больше не теряет флаг аутсорса молча.
+"""PATCH /api/bookings/{id} хранит аутсорс основной услуги, а не теряет его молча.
 
-is_outsource/outsource_amount живут на BookingAdditionalService, колонок на
-Booking нет. Раньше setattr писал транзиентные атрибуты, исчезавшие при
-commit. Теперь явный 400 с подсказкой про additional-services endpoints.
+Раньше (F-004) колонок на Booking не было и PATCH отвечал 400. Теперь поля
+сохраняются, а менять их может только персонал.
 """
 
 from __future__ import annotations
@@ -136,24 +135,32 @@ class BookingOutsourceGuardTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200, response.text)
         return response.json()
 
-    def test_patch_with_is_outsource_true_returns_400(self) -> None:
+    def test_patch_saves_outsource(self) -> None:
         booking = self.create_booking()
         response = self.client.patch(
             f"/api/bookings/{booking['id']}",
             headers=self.auth_headers(self.admin_token),
-            json={"isOutsource": True},
+            json={"isOutsource": True, "outsourceAmount": 700},
         )
-        self.assertEqual(response.status_code, 400, response.text)
-        self.assertIn("additional-services", response.json()["detail"])
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertTrue(response.json()["isOutsource"])
+        self.assertEqual(response.json()["outsourceAmount"], 700)
 
-    def test_patch_with_is_outsource_false_returns_400(self) -> None:
+    def test_patch_turning_off_clears_outsource(self) -> None:
         booking = self.create_booking()
+        self.client.patch(
+            f"/api/bookings/{booking['id']}",
+            headers=self.auth_headers(self.admin_token),
+            json={"isOutsource": True, "outsourceAmount": 700},
+        )
         response = self.client.patch(
             f"/api/bookings/{booking['id']}",
             headers=self.auth_headers(self.owner_token),
             json={"isOutsource": False},
         )
-        self.assertEqual(response.status_code, 400, response.text)
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertFalse(response.json()["isOutsource"])
+        self.assertIsNone(response.json()["outsourceAmount"])
 
     def test_patch_without_outsource_fields_still_works(self) -> None:
         booking = self.create_booking()

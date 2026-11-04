@@ -191,6 +191,7 @@ export interface AdditionalService {
   priceMode?: 'add' | 'subtract';
   isOutsource?: boolean;
   outsourceAmount?: number;
+  outsourcerId?: string | null;
   createdAt: Date;
   workers: AdditionalServiceWorker[];
 }
@@ -203,6 +204,7 @@ export interface AddAdditionalServiceInput {
   priceMode?: 'add' | 'subtract';
   isOutsource?: boolean;
   outsourceAmount?: number;
+  outsourcerId?: string | null;
   workers: AdditionalServiceWorker[];
 }
 
@@ -224,6 +226,9 @@ export interface Booking {
   paymentSettled: boolean;
   isOutsource: boolean;
   outsourceAmount: number;
+  outsourcerId?: string | null;
+  // Цена основной услуги за вычетом аутсорса: база доли мастера.
+  mainBaseAmount?: number;
   createdAt: Date;
   notes?: string;
   car?: string;

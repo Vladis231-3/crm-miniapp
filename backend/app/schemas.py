@@ -469,6 +469,7 @@ class AdditionalServicePayload(BaseModel):
     priceMode: str = "add"
     isOutsource: bool = False
     outsourceAmount: int | None = None
+    outsourcerId: str | None = None
     createdAt: datetime
     workers: list[AdditionalServiceWorkerPayload] = Field(default_factory=list)
 
@@ -481,6 +482,7 @@ class AddAdditionalServiceRequest(BaseModel):
     priceMode: str = "add"
     isOutsource: bool = False
     outsourceAmount: int | None = None
+    outsourcerId: str | None = None
     workers: list[AdditionalServiceWorkerPayload] = Field(default_factory=list)
 
 
@@ -491,7 +493,29 @@ class UpdateAdditionalServiceRequest(BaseModel):
     priceMode: str | None = None
     isOutsource: bool | None = None
     outsourceAmount: int | None = None
+    outsourcerId: str | None = None
     workers: list[AdditionalServiceWorkerPayload] | None = None
+
+
+class OutsourcerPayload(BaseModel):
+    id: str
+    name: str
+    phone: str = ""
+    note: str = ""
+    active: bool = True
+
+
+class OutsourcerCreateRequest(BaseModel):
+    name: str = Field(max_length=120)
+    phone: str = Field(default="", max_length=64)
+    note: str = Field(default="", max_length=2000)
+
+
+class OutsourcerUpdateRequest(BaseModel):
+    name: str | None = Field(default=None, max_length=120)
+    phone: str | None = Field(default=None, max_length=64)
+    note: str | None = Field(default=None, max_length=2000)
+    active: bool | None = None
 
 
 class BookingPayload(BaseModel):
@@ -524,6 +548,11 @@ class BookingPayload(BaseModel):
     source: str | None = None
     referralSource: str = ""
     isRepeatVisit: bool = False
+    isOutsource: bool = False
+    outsourceAmount: int | None = None
+    outsourcerId: str | None = None
+    # База доли мастера: приходит и мастеру, без самой суммы аутсорса.
+    mainBaseAmount: int | None = None
 
 
 class WorkerCalendarBookingPayload(BaseModel):
@@ -814,6 +843,7 @@ class SplitPreviewRequest(BaseModel):
     samplePercent: float = Field(default=30, ge=0, le=100)
     complaintPenaltyPp: float = Field(default=0, ge=0, le=100)
     dops: list[SplitPreviewDop] = Field(default_factory=list, max_length=10)
+    outsourceAmount: int | None = Field(default=None, ge=0)
 
 
 class SplitPreviewAsvcPiggy(BaseModel):
@@ -1265,6 +1295,9 @@ class BookingCreateRequest(BaseModel):
     referralSource: str = ""
     isRepeatVisit: bool = False
     notifyWorkers: bool = False
+    isOutsource: bool = False
+    outsourceAmount: int | None = Field(default=None, ge=0, le=10_000_000)
+    outsourcerId: str | None = None
     materials: list[BookingMaterialPayload] = Field(default_factory=list)
     # T3: ключ идемпотентности. Повтор POST с тем же ключом возвращает
     # существующую запись (replay), а не дубликат.
@@ -1330,6 +1363,8 @@ class BookingUpdateRequest(BaseModel):
     plateType: str | None = None
     notifyWorkers: bool | None = None
     isOutsource: bool | None = None
+    outsourceAmount: int | None = Field(default=None, ge=0, le=10_000_000)
+    outsourcerId: str | None = None
     materials: list[BookingMaterialPayload] | None = None
     referralSource: str | None = None
     isRepeatVisit: bool | None = None
@@ -2044,6 +2079,7 @@ class WalletResponse(BaseModel):
     revenue: float = 0
     totalIncome: float = 0
     totalExpense: float = 0
+    outsourceTotal: float = 0
     profit: float = 0
     bookingCount: int = 0
     incomes: list[IncomePayload] = Field(default_factory=list)
@@ -2238,6 +2274,8 @@ class BookingMoneySplitDetail(BaseModel):
     paymentSettled: bool = False
     resourceGroup: str = ""
     mainPrice: int = 0
+    mainOutsourceAmount: int = 0
+    mainOutsourcerName: str = ""
     additionalServices: list[BookingAdditionalServiceItem] = Field(default_factory=list)
     additionalTotal: int = 0
     subtractTotal: int = 0

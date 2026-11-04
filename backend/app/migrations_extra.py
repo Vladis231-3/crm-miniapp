@@ -304,10 +304,46 @@ def upgrade_booking_money_split_snapshot() -> str:
     return "applied"
 
 
+def upgrade_booking_main_outsource() -> str:
+    """006: аутсорс основной услуги и ссылка на исполнителя.
+
+    Таблицу outsourcers создаёт create_all. Колонки — только версионным путём
+    (см. урок в 005): baseline на проде повторно не выполняется.
+    """
+    from sqlalchemy import inspect as sa_inspect
+    from sqlalchemy import text
+
+    from .database import engine
+
+    insp = sa_inspect(engine)
+    tables = set(insp.get_table_names())
+    false_default = "FALSE" if engine.dialect.name == "postgresql" else "0"
+    wanted = {
+        "bookings": {
+            "is_outsource": f"BOOLEAN NOT NULL DEFAULT {false_default}",
+            "outsource_amount": "INTEGER DEFAULT NULL",
+            "outsourcer_id": "VARCHAR(64) DEFAULT NULL",
+        },
+        "booking_additional_services": {
+            "outsourcer_id": "VARCHAR(64) DEFAULT NULL",
+        },
+    }
+    with engine.begin() as connection:
+        for table, columns in wanted.items():
+            if table not in tables:
+                continue
+            existing = {col["name"] for col in insp.get_columns(table)}
+            for name, ddl in columns.items():
+                if name not in existing:
+                    connection.execute(text(f"ALTER TABLE {table} ADD COLUMN {name} {ddl}"))
+    return "applied"
+
+
 EXTRA_MIGRATIONS: list[tuple[str, Callable[[], str | None]]] = [
     (SLOT_UNIQUE_ID, upgrade_slot_unique_index),
     (OPKEY_ID, upgrade_op_keys),
     ("2026-10-01-deposit-op-key-003", upgrade_deposit_op_key),
     ("2026-10-01-deposit-month-numeric-004", upgrade_deposit_month_numeric),
     ("2026-09-27-booking-split-snapshot-005", upgrade_booking_money_split_snapshot),
+    ("2026-11-04-booking-main-outsource-006", upgrade_booking_main_outsource),
 ]

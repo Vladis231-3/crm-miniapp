@@ -172,6 +172,21 @@ class ScheduleEntry(Base):
     active: Mapped[bool] = mapped_column(Boolean, default=True)
 
 
+class Outsourcer(Base):
+    """Внешний исполнитель: не сотрудник, в зарплатах и входе не участвует."""
+
+    __tablename__ = "outsourcers"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    name: Mapped[str] = mapped_column(String(120))
+    phone: Mapped[str] = mapped_column(String(64), default="")
+    note: Mapped[str | None] = mapped_column(Text, nullable=True, default=None)
+    active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now
+    )
+
+
 class Booking(Base):
     __tablename__ = "bookings"
     __table_args__ = (
@@ -244,6 +259,11 @@ class Booking(Base):
     # Повторный визит (клиент уже был раньше).
     is_repeat_visit: Mapped[bool] = mapped_column(Boolean, default=False)
 
+    # Аутсорс основной услуги: сумма уходит исполнителю до деления остатка.
+    is_outsource: Mapped[bool] = mapped_column(Boolean, default=False)
+    outsource_amount: Mapped[int | None] = mapped_column(Integer, nullable=True, default=None)
+    outsourcer_id: Mapped[str | None] = mapped_column(String(64), nullable=True, default=None)
+
     client: Mapped[Client] = relationship(back_populates="bookings")
     worker_links: Mapped[list[BookingWorker]] = relationship(
         back_populates="booking",
@@ -293,6 +313,7 @@ class BookingAdditionalService(Base):
     price_mode: Mapped[str] = mapped_column(String(8), default="add")
     is_outsource: Mapped[bool] = mapped_column(Boolean, default=False)
     outsource_amount: Mapped[int | None] = mapped_column(Integer, nullable=True, default=None)
+    outsourcer_id: Mapped[str | None] = mapped_column(String(64), nullable=True, default=None)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utc_now
     )

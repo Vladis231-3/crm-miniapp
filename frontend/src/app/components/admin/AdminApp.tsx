@@ -31,6 +31,7 @@ import { Sheet, StatusBadge } from '../atmosfera';
 import { AssignWorkersDialog } from './shared/AssignWorkersDialog';
 import { useApp, Booking, BookingStatus, type AdditionalService, type AdminShiftInspection, type EmployeeSetting, type PayrollEntryKind, type RegisteredClient, type Role, type StockWriteOff, type Worker } from '../../context/AppContext';
 import { apiRequest } from '../../api';
+import { BookingOutsourceEditor, OutsourcerFields, useOutsourcers } from '../shared/OutsourcerFields';
 import { ContentEditor } from './ContentEditor';
 import { ServiceSearchSelect } from '../shared/ServiceSearchSelect';
 import { ServiceSearchInput } from '../shared/ServiceSearchInput';
@@ -48,7 +49,7 @@ import {
   type PlateType,
 } from '../../utils/validation';
 import { FIXED_MASTER_EARNED, formatFixedMasterAmount, isFixedMasterService } from '../ui/utils';
-import { dopWorkerEarned, mainWorkerEarned } from '../../utils/moneySplit';
+import { bookingMainOutsource, dopWorkerEarned, mainWorkerEarned } from '../../utils/moneySplit';
 import { REFERRAL_SOURCES } from '../../constants/referralSources';
 
 // Helper for unlimited category nesting — returns categoryId + all descendant ids
@@ -415,17 +416,19 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
     paymentSettled: false,
     isOutsource: false,
     outsourceAmount: 0,
+    outsourcerId: '',
     referralSource: '',
     isRepeatVisit: false,
   });
   const [showAddServiceModal, setShowAddServiceModal] = useState(false);
   const [addServiceTargetBooking, setAddServiceTargetBooking] = useState<Booking | null>(null);
-  const [addServiceDraft, setAddServiceDraft] = useState({ serviceId: '', price: 0, duration: 30, priceMode: 'add' as 'add' | 'subtract', isOutsource: false, outsourceAmount: 0 });
+  const outsourcersApi = useOutsourcers();
+  const [addServiceDraft, setAddServiceDraft] = useState({ serviceId: '', price: 0, duration: 30, priceMode: 'add' as 'add' | 'subtract', isOutsource: false, outsourceAmount: 0, outsourcerId: '' });
   const [addServiceWorkers, setAddServiceWorkers] = useState<{ id: string; percent: number | ''; payType?: 'percent' | 'fixed'; fixedAmount?: number }[]>([]);
   const [addServiceSaving, setAddServiceSaving] = useState(false);
   const [addServiceError, setAddServiceError] = useState<string | null>(null);
   const [editAsvcId, setEditAsvcId] = useState<string | null>(null);
-  const [editAsvcDraft, setEditAsvcDraft] = useState({ price: 0, duration: 30, priceMode: 'add' as 'add' | 'subtract', isOutsource: false, outsourceAmount: 0 });
+  const [editAsvcDraft, setEditAsvcDraft] = useState({ price: 0, duration: 30, priceMode: 'add' as 'add' | 'subtract', isOutsource: false, outsourceAmount: 0, outsourcerId: '' });
   const [editAsvcWorkers, setEditAsvcWorkers] = useState<{ id: string; percent: number | ''; payType?: 'percent' | 'fixed'; fixedAmount?: number }[]>([]);
   const [editAsvcSaving, setEditAsvcSaving] = useState(false);
   const [editAsvcError, setEditAsvcError] = useState<string | null>(null);
@@ -1042,6 +1045,7 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
       paymentSettled: false,
       isOutsource: false,
       outsourceAmount: 0,
+      outsourcerId: '',
       referralSource: '',
       isRepeatVisit: false,
     });
@@ -1054,7 +1058,7 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
 
   const openAdditionalServiceModal = (booking: Booking) => {
     setAddServiceTargetBooking(booking);
-    setAddServiceDraft({ serviceId: '', price: 0, duration: 30, priceMode: 'add', isOutsource: false, outsourceAmount: 0 });
+    setAddServiceDraft({ serviceId: '', price: 0, duration: 30, priceMode: 'add', isOutsource: false, outsourceAmount: 0, outsourcerId: '' });
     setAddServiceWorkers([]);
     setAddServiceError(null);
     setAddServiceSaving(false);
@@ -1097,6 +1101,7 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
     setAddServiceError(null);
     try {
       const svc = services.find(s => s.id === addServiceDraft.serviceId);
+      if (addServiceDraft.isOutsource && !addServiceDraft.outsourcerId) throw new Error('Выберите аутсорсера');
       const workersList = addServiceWorkers.map(w => {
         const worker = masterWorkers.find(wk => wk.id === w.id);
         return { workerId: w.id, workerName: worker?.name || '', percent: w.percent === '' ? 0 : w.percent as number, payType: w.payType || 'percent', fixedAmount: w.fixedAmount };
@@ -1109,6 +1114,7 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
         priceMode: addServiceDraft.priceMode,
         isOutsource: addServiceDraft.isOutsource,
         outsourceAmount: addServiceDraft.isOutsource ? addServiceDraft.outsourceAmount : 0,
+        outsourcerId: addServiceDraft.isOutsource ? addServiceDraft.outsourcerId : undefined,
         workers: addServiceDraft.isOutsource ? [] : workersList,
       });
       setSelectedBooking(updatedBooking);
@@ -1158,7 +1164,7 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
 
   const handleOpenEditAsvc = (asvc: AdditionalService) => {
     setEditAsvcId(asvc.id);
-    setEditAsvcDraft({ price: asvc.price, duration: asvc.duration, priceMode: asvc.priceMode || 'add', isOutsource: !!asvc.isOutsource, outsourceAmount: asvc.outsourceAmount || 0 });
+    setEditAsvcDraft({ price: asvc.price, duration: asvc.duration, priceMode: asvc.priceMode || 'add', isOutsource: !!asvc.isOutsource, outsourceAmount: asvc.outsourceAmount || 0, outsourcerId: asvc.outsourcerId || '' });
     setEditAsvcWorkers(asvc.workers.map(w => ({ id: w.workerId, percent: w.percent, payType: w.payType || 'percent', fixedAmount: w.fixedAmount })));
     setEditAsvcError(null);
     setEditAsvcSaving(false);
@@ -1169,6 +1175,7 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
     setEditAsvcSaving(true);
     setEditAsvcError(null);
     try {
+      if (editAsvcDraft.isOutsource && !editAsvcDraft.outsourcerId) throw new Error('Выберите аутсорсера');
       const workersList = editAsvcWorkers.map(w => {
         const worker = masterWorkers.find(wk => wk.id === w.id);
         return { workerId: w.id, workerName: worker?.name || '', percent: w.percent === '' ? 0 : w.percent as number, payType: w.payType || 'percent', fixedAmount: w.fixedAmount };
@@ -1179,6 +1186,7 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
         priceMode: editAsvcDraft.priceMode,
         isOutsource: editAsvcDraft.isOutsource,
         outsourceAmount: editAsvcDraft.isOutsource ? editAsvcDraft.outsourceAmount : 0,
+        outsourcerId: editAsvcDraft.isOutsource ? editAsvcDraft.outsourcerId : undefined,
         workers: editAsvcDraft.isOutsource ? [] : workersList,
       });
       setSelectedBooking(updatedBooking);
@@ -1341,6 +1349,19 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
       setNewBookingErrors({ date: 'Укажите дату в формате ДД.ММ.ГГГГ' });
       return;
     }
+    if (newBookingForm.isOutsource) {
+      const outsourceProblem = !newBookingForm.outsourcerId
+        ? 'Выберите аутсорсера'
+        : newBookingForm.outsourceAmount <= 0
+          ? 'Укажите сумму аутсорсеру'
+          : newBookingForm.outsourceAmount > newBookingForm.price
+            ? 'Сумма аутсорсеру больше цены услуги'
+            : null;
+      if (outsourceProblem) {
+        setNewBookingErrors({ general: outsourceProblem });
+        return;
+      }
+    }
     const clientLabel = normalizedClientName || 'Клиент без имени';
     const carLabel = [normalizedCar, normalizedPlate].filter(Boolean).join(', ') || 'Авто не указано';
     const createdWorkers = newBookingWorkers.map((item) => {
@@ -1373,13 +1394,14 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
         paymentSettled: newBookingForm.paymentSettled,
         isOutsource: newBookingForm.isOutsource,
         outsourceAmount: newBookingForm.outsourceAmount,
+        outsourcerId: newBookingForm.isOutsource ? newBookingForm.outsourcerId : undefined,
         car: normalizedCar,
         plate: normalizedPlate,
         plateType: newBookingForm.plateType,
         notes: newBookingForm.notes,
         referralSource: newBookingForm.referralSource || undefined,
         isRepeatVisit: newBookingForm.isRepeatVisit,
-        notifyWorkers: !newBookingForm.isOutsource && notify,
+        notifyWorkers: notify,
         materials: newBookingMaterials.map(m => ({
           ...m,
           qty: typeof m.qty === 'string' ? (parseFloat(m.qty) || 0) : m.qty,
@@ -2200,6 +2222,18 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
                     <p className={`text-sm ${sub}`}>Материалы не указаны  -  добавь в «Редактировать»</p>
                   )}
                 </div>
+                {selectedBooking.status !== 'cancelled' && (
+                  <div className={`${glass} rounded-2xl p-4`}>
+                    <BookingOutsourceEditor
+                      api={outsourcersApi}
+                      booking={selectedBooking}
+                      onSave={(patch) => updateBooking(selectedBooking.id, patch)}
+                      inputCls={inputCls}
+                      sub={sub}
+                      primary="var(--primary-600)"
+                    />
+                  </div>
+                )}
                 <div className={`${glass} rounded-2xl p-4`}>
                   <div className="flex justify-between items-center mb-2">
                     <div className={`text-xs font-medium ${sub}`}>МАСТЕРА</div>
@@ -2228,7 +2262,7 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
                     );
                     const _addTotal = (selectedBooking.additionalServices || []).reduce((s: number, as: any) => s + (as.priceMode === 'subtract' ? 0 : Number(as.price) || 0), 0);
                     const _legacyTotal = (selectedBooking.services || []).reduce((s: number, svc: any) => s + (Number(svc.price) || 0), 0);
-                    const _base = Math.max(0, (Number(selectedBooking.price) || 0) - _addTotal - _legacyTotal);
+                    const _base = Math.max(0, (Number(selectedBooking.price) || 0) - _addTotal - _legacyTotal - bookingMainOutsource(selectedBooking));
                     const _svc = services.find(s => s.id === selectedBooking.serviceId);
                     const _earned = mainWorkerEarned(_base, _svc, selectedBooking.workers, w.workerId);
                     return (
@@ -2296,6 +2330,7 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
                       const prevSvc = services.find(s => s.id === current.serviceId);
                       const wasDefaultPrice = current.price === 0 || (prevSvc && current.price === prevSvc.price);
                       return {
+                        ...current,
                         serviceId,
                         price: wasDefaultPrice ? (svc?.price || 0) : current.price,
                         duration: svc?.duration || 30,
@@ -2364,11 +2399,16 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
                   />
                 </label>
                 {addServiceDraft.isOutsource && (
-                  <div className="mt-2">
-                    <label className={`text-xs ${sub} block mb-1`}>Сумма аутсорсеру (₽)</label>
-                    <input className={inputCls} type="number" min={0} value={numberInputValue(addServiceDraft.outsourceAmount)}
-                      onChange={e => setAddServiceDraft(p => ({ ...p, outsourceAmount: numberFromInput(e.target.value) }))} />
-                  </div>
+                  <OutsourcerFields
+                    api={outsourcersApi}
+                    outsourcerId={addServiceDraft.outsourcerId}
+                    onOutsourcerChange={(id) => setAddServiceDraft(p => ({ ...p, outsourcerId: id }))}
+                    amount={addServiceDraft.outsourceAmount}
+                    onAmountChange={(value) => setAddServiceDraft(p => ({ ...p, outsourceAmount: value }))}
+                    price={addServiceDraft.price}
+                    inputCls={inputCls}
+                    sub={sub}
+                  />
                 )}
               </div>
 
@@ -2549,11 +2589,16 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
                   />
                 </label>
                 {editAsvcDraft.isOutsource && (
-                  <div className="mt-2">
-                    <label className={`text-xs ${sub} block mb-1`}>Сумма аутсорсеру (₽)</label>
-                    <input className={inputCls} type="number" min={0} value={numberInputValue(editAsvcDraft.outsourceAmount)}
-                      onChange={e => setEditAsvcDraft(p => ({ ...p, outsourceAmount: numberFromInput(e.target.value) }))} />
-                  </div>
+                  <OutsourcerFields
+                    api={outsourcersApi}
+                    outsourcerId={editAsvcDraft.outsourcerId}
+                    onOutsourcerChange={(id) => setEditAsvcDraft(p => ({ ...p, outsourcerId: id }))}
+                    amount={editAsvcDraft.outsourceAmount}
+                    onAmountChange={(value) => setEditAsvcDraft(p => ({ ...p, outsourceAmount: value }))}
+                    price={editAsvcDraft.price}
+                    inputCls={inputCls}
+                    sub={sub}
+                  />
                 )}
               </div>
 
@@ -3601,6 +3646,29 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
                   </select>
                 </div>
                 <label className={`${glass} rounded-2xl px-3 py-3 text-sm flex items-center justify-between gap-3`}>
+                  <span>Аутсорс</span>
+                  <input
+                    type="checkbox"
+                    checked={newBookingForm.isOutsource}
+                    onChange={(event) => {
+                      const checked = event.target.checked;
+                      setNewBookingForm(p => ({ ...p, isOutsource: checked }));
+                    }}
+                  />
+                </label>
+                {newBookingForm.isOutsource && (
+                  <OutsourcerFields
+                    api={outsourcersApi}
+                    outsourcerId={newBookingForm.outsourcerId}
+                    onOutsourcerChange={(id) => setNewBookingForm(p => ({ ...p, outsourcerId: id }))}
+                    amount={newBookingForm.outsourceAmount}
+                    onAmountChange={(value) => setNewBookingForm(p => ({ ...p, outsourceAmount: value }))}
+                    price={newBookingForm.price}
+                    inputCls={inputCls}
+                    sub={sub}
+                  />
+                )}
+                <label className={`${glass} rounded-2xl px-3 py-3 text-sm flex items-center justify-between gap-3`}>
                   <span>Оплачено</span>
                   <input
                     type="checkbox"
@@ -3610,10 +3678,10 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
                 </label>
               </div>
               <div className="space-y-2 pb-2">
-                <button onClick={() => { void handleSaveNewBooking(true); }} disabled={!newBookingForm.serviceId || (!newBookingForm.isOutsource && newBookingWorkers.some(w => w.payType !== 'fixed') && totalNewBookingPercent > 100) || newBookingSaving} className="w-full py-3.5 rounded-2xl font-semibold text-white disabled:opacity-50 min-h-[44px] min-w-[44px]" style={{ background: 'var(--primary-600)' }}>
+                <button onClick={() => { void handleSaveNewBooking(true); }} disabled={!newBookingForm.serviceId || (newBookingWorkers.some(w => w.payType !== 'fixed') && totalNewBookingPercent > 100) || newBookingSaving} className="w-full py-3.5 rounded-2xl font-semibold text-white disabled:opacity-50 min-h-[44px] min-w-[44px]" style={{ background: 'var(--primary-600)' }}>
                   {newBookingSaving ? 'Сохранение...' : 'Сохранить и уведомить'}
                 </button>
-                <button onClick={() => { void handleSaveNewBooking(false); }} disabled={!newBookingForm.serviceId || (!newBookingForm.isOutsource && newBookingWorkers.some(w => w.payType !== 'fixed') && totalNewBookingPercent > 100) || newBookingSaving} className={`w-full py-3 rounded-2xl font-medium ${glass} disabled:opacity-50 min-h-[44px] min-w-[44px]`}>
+                <button onClick={() => { void handleSaveNewBooking(false); }} disabled={!newBookingForm.serviceId || (newBookingWorkers.some(w => w.payType !== 'fixed') && totalNewBookingPercent > 100) || newBookingSaving} className={`w-full py-3 rounded-2xl font-medium ${glass} disabled:opacity-50 min-h-[44px] min-w-[44px]`}>
                   Сохранить без уведомления
                 </button>
               </div>

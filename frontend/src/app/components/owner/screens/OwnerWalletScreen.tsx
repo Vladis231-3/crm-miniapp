@@ -15,7 +15,7 @@ interface WalletArchiveRow {
 /** Структурная копия WalletData (OwnerApp.tsx:267). */
 interface WalletScreenData {
   weekStart: string; weekEnd: string;
-  revenue: number; totalIncome: number; totalExpense: number; profit: number;
+  revenue: number; totalIncome: number; totalExpense: number; outsourceTotal?: number; profit: number;
   bookingCount: number;
   incomes: Income[]; expenses: Expense[];
   archives: WalletArchiveRow[];
@@ -125,11 +125,12 @@ export function OwnerWalletScreen({
             </div>
             <div className={`${glass} rounded-2xl p-4`}>
               <div className={`text-xs ${sub} mb-1 flex items-center gap-1.5`}>Прибыль
-                <EditAmountPencil primary={primary} size={11} title="Прибыль = выручка + доходы − расходы — скорректировать через доход/расход" onClick={() => onStartAddIncome()} />
+                <EditAmountPencil primary={primary} size={11} title="Прибыль = выручка + доходы − расходы − аутсорс — скорректировать через доход/расход" onClick={() => onStartAddIncome()} />
               </div>
               <div className="font-bold text-lg tabular-nums" style={{ color: walletData.profit >= 0 ? 'var(--status-success)' : 'var(--status-danger)' }}>
                 {walletData.profit >= 0 ? '+' : ''}{walletData.profit.toLocaleString('ru')} ₽
               </div>
+              {(walletData.outsourceTotal ?? 0) > 0 && <div className={`text-[11px] ${sub} mt-1`}>за вычетом аутсорса {(walletData.outsourceTotal ?? 0).toLocaleString('ru')} ₽</div>}
             </div>
           </div>
 
