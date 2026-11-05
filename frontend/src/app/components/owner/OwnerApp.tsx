@@ -62,7 +62,7 @@ type SettingsSection = null | 'company' | 'schedule' | 'boxes' | 'services' | 'e
 type OwnerExportKind = 'report' | 'pdf' | 'piggy-bank';
 type KpiServiceItem = { name: string; revenue: number; count: number };
 type KpiModalData =
-  | { kind: 'bookings'; title: string; color: string; totalLabel: string; total: number; isMoney?: boolean; bookings: Booking[] }
+  | { kind: 'bookings'; title: string; color: string; totalLabel: string; total: number; isMoney?: boolean; bookings: Booking[]; revenueDate?: string }
   | { kind: 'expenses'; title: string; color: string; total: number; expenses: Expense[] }
   | { kind: 'services'; title: string; color: string; services: KpiServiceItem[] }
   | { kind: 'finance'; title: string; color: string; revenue: number; incomes: number; expenses: number; outsource: number; profit: number };
@@ -4238,20 +4238,45 @@ paymentSettled: false,
     }
   };
 
+  const openRevenueDay = (dateLabel: string) => {
+    const dayBookings = bookings
+      .filter((b) => b.date === dateLabel && b.status === 'completed')
+      .sort((a, b) => a.time.localeCompare(b.time));
+    const yesterday = parseFlexibleDate(todayLabel);
+    yesterday?.setDate(yesterday.getDate() - 1);
+    const title = dateLabel === todayLabel
+      ? 'Выручка сегодня'
+      : yesterday && dateLabel === formatDate(yesterday)
+        ? 'Выручка вчера'
+        : `Выручка ${dateLabel}`;
+    setKpiModal({
+      kind: 'bookings',
+      title,
+      color: primary,
+      totalLabel: 'завершено',
+      total: dayBookings.reduce((sum, b) => sum + b.price, 0),
+      bookings: dayBookings,
+      revenueDate: dateLabel,
+    });
+  };
+  const isFutureDay = (day: Date) => {
+    const today = parseFlexibleDate(todayLabel);
+    return today ? day > today : false;
+  };
+  const shiftRevenueDay = (dateLabel: string, delta: number) => {
+    const next = parseFlexibleDate(dateLabel);
+    if (!next) return;
+    next.setDate(next.getDate() + delta);
+    if (!isFutureDay(next)) openRevenueDay(formatDate(next));
+  };
+
   const kpiCards = [
     {
       label: 'Выручка сегодня',
       value: `${todayRevenue.toLocaleString('ru')} ₽`,
       icon: TrendingUp,
       color: primary,
-      action: () => setKpiModal({
-        kind: 'bookings',
-        title: 'Выручка сегодня',
-        color: primary,
-        totalLabel: 'выручка за сегодня',
-        total: todayRevenue,
-        bookings: todayBookings.filter(b => b.status === 'completed'),
-      }),
+      action: () => openRevenueDay(todayLabel),
     },
     {
       label: 'Расходы за неделю',
@@ -11313,6 +11338,32 @@ paymentSettled: false,
                   <button onClick={() => setKpiModal(null)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} strokeWidth={1.75} /></button>
                 </div>
               </div>
+
+              {kpiModal.kind === 'bookings' && kpiModal.revenueDate && (() => {
+                const revenueDate = kpiModal.revenueDate;
+                const isToday = revenueDate === todayLabel;
+                return (
+                  <div className="flex items-center gap-2 mb-4">
+                    <button type="button" aria-label="Предыдущий день" onClick={() => shiftRevenueDay(revenueDate, -1)} className={`p-2.5 rounded-xl shrink-0 ${glass}`}>
+                      <ChevronLeft size={16} strokeWidth={1.75} />
+                    </button>
+                    <input
+                      type="date"
+                      aria-label="Выбрать день"
+                      className={`flex-1 min-w-0 ${inputCls} text-center`}
+                      value={toISODate(revenueDate)}
+                      max={toISODate(todayLabel)}
+                      onChange={(e) => {
+                        const picked = parseFlexibleDate(e.target.value);
+                        if (picked && !isFutureDay(picked)) openRevenueDay(formatDate(picked));
+                      }}
+                    />
+                    <button type="button" aria-label="Следующий день" disabled={isToday} onClick={() => shiftRevenueDay(revenueDate, 1)} className={`p-2.5 rounded-xl shrink-0 ${glass} ${isToday ? 'opacity-40 cursor-not-allowed' : ''}`}>
+                      <ChevronRight size={16} strokeWidth={1.75} />
+                    </button>
+                  </div>
+                );
+              })()}
 
               {kpiModal.kind === 'bookings' && (
                 kpiModal.bookings.length === 0 ? (

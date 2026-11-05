@@ -1,6 +1,6 @@
 # PROJECT_MAP — карта проекта
 
-> Автосгенерировано 2026-11-04 19:57 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
+> Автосгенерировано 2026-11-05 11:20 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
 
 **Обновление:**
 
@@ -13,7 +13,7 @@ python scripts/generate_project_map.py --install-hook  # git pre-commit хук (
 ## Статистика
 
 - Файлов кода: **521**
-- Строк кода: **186 372**
+- Строк кода: **186 423**
 - По расширениям: `.js`: 3, `.mjs`: 9, `.py`: 156, `.ts`: 40, `.tsx`: 313
 
 ## Архитектура
@@ -4692,7 +4692,7 @@ concept1.0/
 - `totals` (стр. 145) — локальный
 - `isRealCard` (стр. 154) — локальный
 
-### frontend/src/app/components/owner/OwnerApp.tsx (13710 строк)
+### frontend/src/app/components/owner/OwnerApp.tsx (13761 строк)
 
 - `stockCategoryIdsWithDescendants` (стр. 50) — локальный
 - `map` (стр. 51) — локальный
@@ -5937,18 +5937,18 @@ concept1.0/
 
 ## Недавно изменённые файлы
 
-- `frontend/src/app/components/owner/screens/OwnerWalletScreen.tsx` (2026-11-04 21:51)
-- `frontend/src/app/components/owner/OwnerApp.tsx` (2026-11-04 21:51)
-- `frontend/src/app/utils/moneySplit.ts` (2026-11-04 21:51)
-- `backend/tests/test_booking_main_outsource.py` (2026-11-04 21:51)
-- `backend/app/schemas.py` (2026-11-04 21:51)
-- `backend/app/main.py` (2026-11-04 21:51)
-- `frontend/src/app/components/admin/AdminApp.tsx` (2026-11-04 21:46)
-- `frontend/src/app/components/worker/WorkerApp.tsx` (2026-11-04 21:41)
-- `frontend/src/app/context/AppContext.tsx` (2026-11-04 21:41)
-- `frontend/src/app/components/owner/OutsourcersPage.tsx` (2026-11-04 21:41)
-- `frontend/src/app/components/shared/OutsourcerFields.tsx` (2026-11-04 21:41)
-- `backend/tests/test_booking_outsource_guard.py` (2026-11-04 21:34)
-- `backend/app/migrations_extra.py` (2026-11-04 21:29)
-- `backend/app/models.py` (2026-11-04 21:29)
+- `frontend/src/app/components/owner/OwnerApp.tsx` (2026-11-05 14:13)
+- `frontend/src/app/components/owner/screens/OwnerWalletScreen.tsx` (2026-11-05 07:48)
+- `frontend/src/app/components/shared/OutsourcerFields.tsx` (2026-11-05 07:48)
+- `frontend/src/app/components/worker/WorkerApp.tsx` (2026-11-05 07:48)
+- `frontend/src/app/context/AppContext.tsx` (2026-11-05 07:48)
+- `frontend/src/app/utils/moneySplit.ts` (2026-11-05 07:48)
+- `backend/app/main.py` (2026-11-05 07:48)
+- `backend/app/migrations_extra.py` (2026-11-05 07:48)
+- `backend/app/models.py` (2026-11-05 07:48)
+- `backend/app/schemas.py` (2026-11-05 07:48)
+- `backend/tests/test_booking_main_outsource.py` (2026-11-05 07:48)
+- `backend/tests/test_booking_outsource_guard.py` (2026-11-05 07:48)
+- `frontend/src/app/components/admin/AdminApp.tsx` (2026-11-05 07:48)
+- `frontend/src/app/components/owner/OutsourcersPage.tsx` (2026-11-05 07:48)
 - `scripts/.project-map-watch.lock` (2026-10-29 13:12)
