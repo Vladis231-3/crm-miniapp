@@ -9871,7 +9871,11 @@ def _owner_export_file(
 
     ).all()
 
-    piggy_transactions = _live_piggy_transactions(db)
+    piggy_transactions = db.scalars(
+
+        select(PiggyBankTransaction).where(PiggyBankTransaction.deleted_at.is_(None)).order_by(PiggyBankTransaction.created_at.desc())
+
+    ).all()
 
 
 
@@ -10002,33 +10006,6 @@ def _owner_export_file(
 
 
 
-def _live_piggy_transactions(db: Session) -> list[PiggyBankTransaction]:
-    """Проводки копилки так, как их считает приложение (GET /piggy-bank).
-
-    Вклад записи, которую после завершения отменили или удалили, в баланс
-    приложения не входит (_is_live_deposit). Отчёты брали все живые проводки
-    и расходились с приложением на сумму таких вкладов.
-    """
-    txs = db.scalars(
-        select(PiggyBankTransaction)
-        .where(PiggyBankTransaction.deleted_at.is_(None))
-        .order_by(PiggyBankTransaction.created_at.desc())
-    ).all()
-    completed_ids = set(
-        db.scalars(
-            select(Booking.id).where(
-                Booking.status == "completed", Booking.deleted_at.is_(None)
-            )
-        ).all()
-    )
-    return [
-        t for t in txs
-        if t.transaction_type != "deposit_24percent"
-        or not t.booking_id
-        or t.booking_id in completed_ids
-    ]
-
-
 def _piggy_bank_export_file(
 
     db: Session,
@@ -10075,7 +10052,11 @@ def _piggy_bank_export_file(
 
     )
 
-    piggy_transactions = _live_piggy_transactions(db)
+    piggy_transactions = db.scalars(
+
+        select(PiggyBankTransaction).where(PiggyBankTransaction.deleted_at.is_(None)).order_by(PiggyBankTransaction.created_at.desc())
+
+    ).all()
 
     return build_piggy_bank_export(
 
@@ -10384,7 +10365,11 @@ def _owner_summary_report(
 
     incomes = db.scalars(select(Income).where(Income.deleted_at.is_(None)).order_by(Income.created_at.desc())).all()
 
-    piggy_transactions = _live_piggy_transactions(db)
+    piggy_transactions = db.scalars(
+
+        select(PiggyBankTransaction).where(PiggyBankTransaction.deleted_at.is_(None)).order_by(PiggyBankTransaction.created_at.desc())
+
+    ).all()
 
     return build_owner_summary_report(
 
@@ -10498,7 +10483,11 @@ def _owner_summary_export_file(
 
     penalties = db.scalars(select(Penalty).order_by(Penalty.created_at.desc())).all()
 
-    piggy_transactions = _live_piggy_transactions(db)
+    piggy_transactions = db.scalars(
+
+        select(PiggyBankTransaction).where(PiggyBankTransaction.deleted_at.is_(None)).order_by(PiggyBankTransaction.created_at.desc())
+
+    ).all()
 
     return build_owner_summary_export(
 
@@ -14722,64 +14711,6 @@ def _reconcile_owner_shares_for_booking(
     return {"before": before, "after": after, "paid_mismatch": paid_mismatch}
 
 
-def _booking_workers_money_fp(booking: Booking) -> tuple:
-    """Всё в мастерах записи, что влияет на сплит денег."""
-    return tuple(sorted(
-        (
-            (
-                str(getattr(link, "worker_id", "")),
-                getattr(link, "percent", None),
-                getattr(link, "pay_type", None),
-                getattr(link, "fixed_amount", None),
-                getattr(link, "override_earned", None),
-            )
-            for link in (booking.worker_links or [])
-        ),
-        key=repr,
-    ))
-
-
-def _booking_materials_money_fp(booking: Booking) -> tuple:
-    """Всё в материалах записи, что влияет на сплит денег."""
-    return tuple(sorted(
-        (
-            (
-                getattr(mat, "stock_item_id", None),
-                getattr(mat, "name", None),
-                getattr(mat, "qty", None),
-                getattr(mat, "unit_price", None),
-            )
-            for mat in (booking.materials or [])
-        ),
-        key=repr,
-    ))
-
-
-def _resync_completed_booking_money(
-    db: Session, booking: Booking, complaints_by_worker: dict[str, list] | None = None
-) -> None:
-    """Правка завершённой записи: вклады копилки и pending-доли владельцев
-    приводятся к текущему сплиту, снапшот перезамораживается.
-
-    Без этого вклад оставался по цене на момент завершения (цену услуг
-    «от N ₽» часто ставят после). Неоплаченную запись копилка не видит
-    (правило «только оплаченные»): для неё только перезамораживаем снапшот.
-    Выплаченные доли и ЗП сверка не трогает.
-    """
-    if booking.status != "completed":
-        return
-    # Сплит должен видеть только что добавленные/удалённые допы, мастеров, материалы.
-    db.flush()
-    db.refresh(booking)
-    if complaints_by_worker is None:
-        complaints_by_worker = _complaints_by_worker(_load_penalties(db))
-    if booking.payment_settled:
-        _reconcile_piggy_for_booking(db, booking, complaints_by_worker=complaints_by_worker)
-        if (booking.payment_type or "") != "credit":
-            _reconcile_owner_shares_for_booking(db, booking, complaints_by_worker)
-    _freeze_booking_split(db, booking, complaints_by_worker)
-
-
 def _process_owner_profit_share(
     db: Session, booking: Booking, *, force_credit_replay: bool = False
 ) -> None:
@@ -14904,8 +14835,6 @@ def update_booking(
     previous_status = booking.status
 
     previous_payment_settled = booking.payment_settled
-    previous_service_id = booking.service_id
-    previous_payment_type = booking.payment_type
 
     previous_service = booking.service
 
@@ -15301,8 +15230,6 @@ def update_booking(
         )
 
     previous_worker_ids = _booking_all_worker_ids(booking)
-    previous_workers_fp = _booking_workers_money_fp(booking)
-    previous_materials_fp = _booking_materials_money_fp(booking)
 
     if payload.workers is not None:
 
@@ -15474,30 +15401,29 @@ def update_booking(
             _process_piggy_bank_for_booking(db, booking)
 
             _process_owner_profit_share(db, booking)
+        elif booking.status == "completed" and not booking_just_completed:
+            # Правка уже завершённой записи: сверяем проводки с новым сплитом
+            # (цены/допы/услуга могли измениться). Доли владельцев до-создаём,
+            # если их нет (ремонт записей, завершённых до строгого has_custom):
+            # _process_owner_profit_share идемпотентен (есть доли — no-op).
+            _reconcile_piggy_for_booking(db, booking)
+            if (booking.payment_type or "") != "credit":
+                _reconcile_owner_shares_for_booking(db, booking)
 
         # Заморозка: дальнейшая смена настроек услуги историю не перепишет.
         _freeze_booking_split(db, booking)
 
-    elif booking.status == "completed":
-        # Правка уже завершённой записи. Денежные поля (цена, услуга, тип
-        # оплаты, аутсорс, мастера, материалы) → вклады копилки и pending-доли
-        # по новому сплиту. Заметка/время/бокс не пересчитывают: снапшот
-        # защищает историю от смены настроек услуги.
-        money_changed = (
-            previous_outsource != (bool(booking.is_outsource), booking.outsource_amount, booking.outsourcer_id)
-            or booking.price != previous_price
-            or booking.service_id != previous_service_id
-            or (booking.payment_type or "") != (previous_payment_type or "")
-        )
-        if not money_changed and (payload.workers is not None or payload.materials is not None):
-            db.flush()
-            db.expire(booking, ["worker_links", "materials"])
-            money_changed = (
-                _booking_workers_money_fp(booking) != previous_workers_fp
-                or _booking_materials_money_fp(booking) != previous_materials_fp
-            )
-        if money_changed:
-            _resync_completed_booking_money(db, booking)
+    elif booking.status == "completed" and (
+        previous_outsource != (bool(booking.is_outsource), booking.outsource_amount, booking.outsourcer_id)
+        or (booking.is_outsource and booking.price != previous_price)
+    ):
+        # Правка аутсорса завершённой записи: пересчёт проводок и снапшота.
+        # Выплаченные доли владельцев и зарплатные проводки сверка не трогает.
+        if booking.payment_settled:
+            _reconcile_piggy_for_booking(db, booking)
+            if (booking.payment_type or "") != "credit":
+                _reconcile_owner_shares_for_booking(db, booking)
+        _freeze_booking_split(db, booking)
 
 
 
@@ -15809,9 +15735,6 @@ def add_booking_service(
 
     booking.duration = (booking.duration or 0) + payload.duration
 
-    # Услуга к уже завершённой записи: вклады копилки/доли — по новой цене.
-    _resync_completed_booking_money(db, booking)
-
     db.commit()
 
     db.refresh(booking)
@@ -15951,9 +15874,6 @@ def add_booking_additional_service(
 
     booking.duration = (booking.duration or 0) + payload.duration
 
-    # Доп к уже завершённой записи: вклады копилки/доли — по новому сплиту.
-    _resync_completed_booking_money(db, booking)
-
     db.commit()
 
     db.refresh(booking)
@@ -16028,9 +15948,6 @@ def remove_booking_additional_service(
     booking.duration = max(0, (booking.duration or 0) - asvc.duration)
 
     db.delete(asvc)
-
-    # Удаление допа у завершённой записи: его вклад уходит, основной — по новой цене.
-    _resync_completed_booking_money(db, booking)
 
     db.commit()
 
@@ -16129,9 +16046,6 @@ def update_booking_additional_service(
         asvc.price = payload.price
     if payload.priceMode is not None:
         asvc.price_mode = payload.priceMode
-
-    # Правка допа у завершённой записи: вклады копилки/доли — по новому сплиту.
-    _resync_completed_booking_money(db, booking)
 
     db.commit()
     db.refresh(booking)
@@ -17795,19 +17709,6 @@ def get_piggy_bank(
         all_tx = [t for t in all_tx if t.booking_id == booking_id]
 
     filtered_tx = [t for t in all_tx if _in_range(t.date)]
-    # Список операций сходится с карточкой: вклады записей, которые после
-    # завершения отменили/удалили, в баланс не входят — и в списке их нет.
-    _live_booking_ids = set(
-        db.scalars(
-            select(Booking.id).where(Booking.status == "completed", Booking.deleted_at.is_(None))
-        ).all()
-    )
-    filtered_tx = [
-        t for t in filtered_tx
-        if t.transaction_type != "deposit_24percent"
-        or not t.booking_id
-        or t.booking_id in _live_booking_ids
-    ]
 
     transaction_payloads = []
 
@@ -25571,7 +25472,6 @@ def repair_missing_owner_shares(
 @app.post("/api/admin/maintenance/recalc-money")
 def recalc_money_by_formulas(
     dryRun: bool = True,
-    dateFrom: str | None = None,
     session_data: dict = Depends(_require_session),
     db: Session = Depends(get_db),
 ) -> dict:
@@ -25582,19 +25482,8 @@ def recalc_money_by_formulas(
     Кредит — только если месяц уже закрыт (вклады/доли есть). Выплаченные
     доли и ЗП не трогаем: переплаты по формуле попадают в отчёт.
     dryRun=true — всё считается и откатывается, возвращается сводка.
-    dateFrom=ДД.ММ.ГГГГ — только записи с этой даты: прошлое, выверенное
-    корректировками копилки, не трогаем.
     """
     _ensure_staff_role(session_data, {"owner"})
-    date_from: date | None = None
-    if dateFrom:
-        try:
-            date_from = datetime.strptime(dateFrom.strip(), "%d.%m.%Y").date()
-        except ValueError:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="dateFrom: формат ДД.ММ.ГГГГ",
-            ) from None
     invalid = []
     for svc in db.scalars(select(Service)).all():
         reason = formula_tail_error(
@@ -25644,14 +25533,6 @@ def recalc_money_by_formulas(
     for booking in bookings:
         if not booking.payment_settled:
             continue
-        if date_from is not None:
-            try:
-                booking_day = datetime.strptime((booking.date or "").strip(), "%d.%m.%Y").date()
-            except ValueError:
-                # Битая дата при фильтре по дате — не трогаем (как в карточке копилки).
-                continue
-            if booking_day < date_from:
-                continue
         if (booking.payment_type or "") == "credit":
             has_money = db.scalar(
                 select(PiggyBankTransaction.id).where(
@@ -25688,7 +25569,6 @@ def recalc_money_by_formulas(
     groups = sorted(set(piggy_before) | set(piggy_after))
     summary = {
         "dryRun": dryRun,
-        "dateFrom": dateFrom,
         "bookings": processed,
         "piggy": [
             {
@@ -25709,7 +25589,7 @@ def recalc_money_by_formulas(
         db,
         action="maintenance.recalc-money",
         session_data=session_data,
-        detail=f"bookings={processed} owners_delta={owners_after - owners_before} dateFrom={dateFrom or ''}",
+        detail=f"bookings={processed} owners_delta={owners_after - owners_before}",
     )
     db.commit()
     return summary
