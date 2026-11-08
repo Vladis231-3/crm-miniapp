@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { ChevronRight, Download, Edit3, Minus, RefreshCw, Trash2, X } from 'lucide-react';
 import { useApp, type Booking } from '../../../context/AppContext';
 import { toast, EditAmountPencil } from '../../atmosfera';
+import { PiggyNotCountedCard, type PiggyNotCountedItem } from './PiggyNotCountedCard';
 
 type PiggyTab = 'all' | 'wash' | 'detailing' | 'general';
 
@@ -58,6 +59,7 @@ interface PiggyBankScreenData {
   generalNetPiggy?: number;
   archives?: Array<{ id: number }>;
   spenderDebts?: PiggySpenderDebt[];
+  notInPiggy?: PiggyNotCountedItem[];
   weeklyFormula?: string | null;
   currentWeekStart?: string | null;
   washWeekStart?: string | null;
@@ -520,6 +522,17 @@ export function OwnerPiggyBankScreen({
           </div>
         </div>
       )}
+
+      {/* «Не в копилке»: сверка с кассой по текущему табу */}
+      <PiggyNotCountedCard
+        items={(piggyBank?.notInPiggy ?? []).filter(i => piggyTab === 'all' || i.resourceGroup === piggyTab)}
+        showGroup={piggyTab === 'all'}
+        bookings={bookings}
+        onSelectBooking={onSelectBooking}
+        glass={glass}
+        sub={sub}
+        isDark={isDark}
+      />
 
       {/* Who took from piggy - per person, clickable */}
       {piggyBank?.spenderDebts && piggyBank.spenderDebts.length > 0 && (

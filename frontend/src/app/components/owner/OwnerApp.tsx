@@ -24,6 +24,7 @@ import { OwnerStockPage } from './screens/OwnerStockPage';
 import { OwnerClientsScreen } from './screens/OwnerClientsScreen';
 import { OwnerWalletScreen } from './screens/OwnerWalletScreen';
 import { OwnerPiggyBankScreen } from './screens/OwnerPiggyBankScreen';
+import type { PiggyNotCountedItem } from './screens/PiggyNotCountedCard';
 import { Toaster } from '../atmosfera';
 import { EditAmountPencil } from '../atmosfera/EditAmountPencil';
 import { COMPLAINT_THRESHOLD, getComplaintPenaltyState, isComplaintActive } from '../../utils/complaints';
@@ -281,6 +282,7 @@ interface PiggyBankData {
   combinedBalance: number;
   generalNetPiggy?: number;
   spenderDebts?: PiggySpenderDebt[];
+  notInPiggy?: PiggyNotCountedItem[];
   weeklyFormula?: string | null;
   currentWeekStart?: string | null;
   washWeekStart?: string | null;

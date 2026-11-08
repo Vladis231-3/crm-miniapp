@@ -344,6 +344,8 @@ from .schemas import (
 
     PiggyBankSpenderDebt,
 
+    PiggyNotCountedItem,
+
     PiggyBankTransactionPayload,
 
     PiggyBankWashBreakdown,
@@ -14674,6 +14676,28 @@ def _reconcile_piggy_for_booking(
         )
 
 
+def _live_owner_share_booking_ids(db: Session) -> set[str]:
+    """Записи, чьи доли владельцев «живые»: завершены и не удалены.
+
+    Отмена/удаление после завершения оставляют pending-доли — долгом они уже
+    не являются (как вклады копилки, _is_live_deposit в get_piggy_bank;
+    карточка ЗП владельца исключает их так же). Строки не удаляем: если запись
+    снова завершат, доли опять станут живыми.
+    """
+    return set(
+        db.scalars(
+            select(Booking.id).where(
+                Booking.deleted_at.is_(None), Booking.status == "completed"
+            )
+        ).all()
+    )
+
+
+def _is_live_owner_share(share: Any, live_booking_ids: set[str]) -> bool:
+    bid = getattr(share, "booking_id", None)
+    return bid is None or bid in live_booking_ids
+
+
 def _reconcile_owner_shares_for_booking(
     db: Session, booking: Booking, complaints_by_worker: dict[str, list] | None = None
 ) -> dict:
@@ -17716,6 +17740,187 @@ def update_income(
 
 
 
+def _piggy_not_counted_items(
+    db: Session,
+    *,
+    booking_id: str | None,
+    completed_bookings: list[Booking],
+    services_map: dict[str, Service],
+    complaints_by_worker: dict[str, list],
+    all_txs: list[PiggyBankTransaction],
+    is_live_deposit: Callable[[Any], bool],
+    bucket_tx_types: set[str],
+    groups: tuple[str, ...],
+) -> list[PiggyNotCountedItem]:
+    """Блок «Не в копилке» для сверки копилки с кассой.
+
+    unpaid — запись завершена, но не «Оплачено»: вклада нет. Сумма — то, что
+      ляжет при оплате (живой сплит и банки как в _process_piggy_bank_for_booking).
+    cancelled — вклад есть, но запись отменили после оплаты: в баланс не входит.
+    after_adjust — проводка создана ПОСЛЕ последней корректировки своей группы,
+      но датой не позже её: могла задвоиться с прошлым подсчётом кассы.
+    Фильтр по датам не применяется — баланс копилки всегда за всё время.
+    unpaid/cancelled — только с даты ПЕРВОЙ корректировки группы (первая
+    сверка с кассой): более старые записи к нынешней кассе отношения не имеют,
+    а их «Оплачено» задним числом раздуло бы копилку. Нет корректировок — без отсечки.
+    Баланс этот блок не меняет; ошибка здесь не роняет копилку.
+    """
+
+    def _day(value: str | None) -> date | None:
+        return _parse_date(value.strip()) if value and value.strip() else None
+
+    def _ts(obj: Any) -> datetime:
+        ca = getattr(obj, "created_at", None)
+        # aware/naive вперемешку не сравниваются — как _created_key в копилке.
+        return ca.replace(tzinfo=None) if isinstance(ca, datetime) else datetime.min  # noqa: DTZ901
+
+    def _booking_fields(b: Booking | None) -> dict[str, Any]:
+        if b is None:
+            return {}
+        return {
+            "bookingId": b.id,
+            "date": b.date or "",
+            "time": b.time,
+            "service": (b.service or "").strip() or None,
+            "clientName": b.client_name,
+            "car": b.car,
+            "price": float(b.price or 0),
+            "paymentType": b.payment_type,
+            "status": b.status,
+        }
+
+    items: list[PiggyNotCountedItem] = []
+    try:
+        first_adjust_day: dict[str, date] = {}
+        for t in all_txs:
+            if t.transaction_type != "adjust":
+                continue
+            t_day = _day(t.date)
+            t_group = t.resource_group or ""
+            if t_day is not None and (t_group not in first_adjust_day or t_day < first_adjust_day[t_group]):
+                first_adjust_day[t_group] = t_day
+
+        def _before_first_count(group: str, b: Booking) -> bool:
+            start = first_adjust_day.get(group)
+            if start is None:
+                return False
+            b_day = _day(b.date)
+            return b_day is None or b_day < start
+
+        # 1. Завершены, но не оплачены (кредит — отдельный цикл settle-month).
+        for b in completed_bookings:
+            if booking_id and b.id != booking_id:
+                continue
+            if b.payment_settled or (b.payment_type or "") == "credit":
+                continue
+            svc = services_map.get(b.service_id) if b.service_id else None
+            rg = _service_resource_group(svc)
+            try:
+                split = _booking_money_split(db, b, complaints_by_worker)
+            except Exception:
+                logger.exception("not-in-piggy: split failed for %s", b.id)
+                continue
+            asvc = split.get("asvc_piggy_deposits") or []
+            per_group: dict[str, int] = {}
+            main_amount = max(
+                0,
+                int(split.get("piggy_deposit") or 0)
+                - sum(int(d.get("amount") or 0) for d in asvc),
+            )
+            target = (svc.piggy_target or "").strip() if svc is not None else ""
+            if target not in ("detailing", "wash", "general"):
+                target = ""
+            if main_amount > 0:
+                group = target or rg
+                per_group[group] = per_group.get(group, 0) + main_amount
+            for dep in asvc:
+                amount = int(dep.get("amount") or 0)
+                if amount <= 0:
+                    continue
+                group = dep.get("resource_group") or rg
+                per_group[group] = per_group.get(group, 0) + amount
+            for group, amount in per_group.items():
+                if _before_first_count(group, b):
+                    continue
+                items.append(
+                    PiggyNotCountedItem(
+                        reason="unpaid", resourceGroup=group, amount=amount, **_booking_fields(b)
+                    )
+                )
+
+        # 2. Оплачены, но отменены: вклад есть, в баланс не входит.
+        completed_ids = {b.id for b in completed_bookings}
+        dead: dict[tuple[str, str], float] = {}
+        for t in all_txs:
+            if t.transaction_type != "deposit_24percent" or not t.booking_id:
+                continue
+            if t.booking_id in completed_ids:
+                continue
+            if booking_id and t.booking_id != booking_id:
+                continue
+            key = (t.booking_id, t.resource_group or "")
+            dead[key] = dead.get(key, 0.0) + float(t.amount or 0)
+        for (bid, group), amount in dead.items():
+            if not amount:
+                continue
+            b = db.get(Booking, bid)
+            if b is None or b.deleted_at is not None or _before_first_count(group, b):
+                continue
+            items.append(
+                PiggyNotCountedItem(
+                    reason="cancelled", resourceGroup=group, amount=round(amount, 2), **_booking_fields(b)
+                )
+            )
+
+        # 3. Добавлено задним числом после последней корректировки группы.
+        for group in groups:
+            adjusts = [
+                t for t in all_txs
+                if t.transaction_type == "adjust" and (t.resource_group or "") == group
+            ]
+            if not adjusts:
+                continue
+            last = max(adjusts, key=lambda t: (_ts(t), t.id))
+            last_day = _day(last.date)
+            if last_day is None:
+                continue
+            last_ts = _ts(last)
+            for t in all_txs:
+                if (t.resource_group or "") != group or t.transaction_type == "adjust":
+                    continue
+                if t.transaction_type not in bucket_tx_types or not is_live_deposit(t):
+                    continue
+                if booking_id and t.booking_id != booking_id:
+                    continue
+                if _ts(t) <= last_ts:
+                    continue
+                tx_day = _day(t.date)
+                if tx_day is None or tx_day > last_day:
+                    continue
+                fields = _booking_fields(db.get(Booking, t.booking_id) if t.booking_id else None)
+                fields["date"] = t.date or ""
+                items.append(
+                    PiggyNotCountedItem(
+                        reason="after_adjust",
+                        resourceGroup=group,
+                        amount=float(t.amount or 0),
+                        txId=t.id,
+                        purpose=t.purpose,
+                        adjustDate=last.date,
+                        createdAt=t.created_at,
+                        **fields,
+                    )
+                )
+    except Exception:
+        logger.exception("piggy not-in-piggy block failed")
+        return []
+
+    items.sort(key=lambda i: (_day(i.date) or date.min, i.time or ""), reverse=True)
+    return items
+
+
+
+
 
 
 @app.get("/api/owner/piggy-bank", response_model=PiggyBankResponse)
@@ -18238,7 +18443,8 @@ def get_piggy_bank(
         b = db.get(Booking, s.booking_id)
         # FIX cleanup: доли удалённых записей не висят в копилке.
         # Иначе после очистки bookings Выручка/ЗП уходят, а доли владельцев остаются.
-        if b is None or getattr(b, "deleted_at", None) is not None:
+        # Отменённые после завершения — тоже (как вклады, _is_live_deposit).
+        if b is None or getattr(b, "deleted_at", None) is not None or b.status != "completed":
             continue
 
         owner_share_items.append(
@@ -18483,6 +18689,18 @@ def get_piggy_bank(
     except Exception:
         logger.exception("piggy current week snapshot failed")
 
+    not_in_piggy = _piggy_not_counted_items(
+        db,
+        booking_id=booking_id,
+        completed_bookings=all_completed_bookings,
+        services_map=services_map,
+        complaints_by_worker=complaints_by_worker,
+        all_txs=full_all_tx_for_debt,
+        is_live_deposit=_is_live_deposit,
+        bucket_tx_types=_BUCKET_TX_TYPES,
+        groups=_PIGGY_GROUPS,
+    )
+
     return PiggyBankResponse(
 
         balance=balance,
@@ -18576,6 +18794,8 @@ def get_piggy_bank(
         ownerProfitBalance=owner_total_accrued - owner_total_paid,
 
         spenderDebts=spender_debts,
+
+        notInPiggy=not_in_piggy,
 
         weeklyFormula=WEEKLY_FORMULA_VERSION,
 
@@ -27580,6 +27800,9 @@ def owner_pay_salary(
 
         raise HTTPException(status_code=404, detail="Владелец не найден")
 
+    # Доли отменённых/удалённых записей в выплату не идут (как в owner_salary_detail).
+    live_share_booking_ids = _live_owner_share_booking_ids(db)
+
     # Идемпотентность: повтор с тем же clientRequestId возвращает первую
     # выплату (как у мастеров). Без pre-check ретрай после полной выплаты
     # упирался бы в 400 «больше, чем накоплено» вместо replay.
@@ -27599,6 +27822,7 @@ def owner_pay_salary(
                         OwnerProfitShare.status == "pending",
                     )
                 ).all()
+                if _is_live_owner_share(s, live_share_booking_ids)
             )
             return PayOwnerSalaryResponse(
                 message="Выплата уже проведена ранее",
@@ -27624,6 +27848,10 @@ def owner_pay_salary(
         ).order_by(OwnerProfitShare.created_at.asc(), OwnerProfitShare.id.asc())
 
     ).all()
+
+    pending_shares = [
+        s for s in pending_shares if _is_live_owner_share(s, live_share_booking_ids)
+    ]
 
 
 
@@ -27787,6 +28015,7 @@ def owner_pay_salary(
                             OwnerProfitShare.status == "pending",
                         )
                     ).all()
+                    if _is_live_owner_share(s, live_share_booking_ids)
                 )
                 return PayOwnerSalaryResponse(
                     message="Выплата уже проведена ранее",
@@ -27814,6 +28043,8 @@ def owner_pay_salary(
             )
 
         ).all()
+
+        if _is_live_owner_share(s, live_share_booking_ids)
 
     )
 

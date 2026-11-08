@@ -2015,6 +2015,28 @@ class PiggyBankSpenderDebt(BaseModel):
     count: int = 0
 
 
+class PiggyNotCountedItem(BaseModel):
+    """Строка блока «Не в копилке»: деньги, которых нет в балансе копилки,
+    или проводка, добавленная задним числом после последней корректировки."""
+
+    reason: Literal["unpaid", "cancelled", "after_adjust"]
+    resourceGroup: str
+    amount: float = 0
+    bookingId: str | None = None
+    txId: str | None = None
+    date: str = ""
+    time: str | None = None
+    service: str | None = None
+    clientName: str | None = None
+    car: str | None = None
+    price: float | None = None
+    paymentType: str | None = None
+    status: str | None = None
+    purpose: str | None = None
+    adjustDate: str | None = None
+    createdAt: datetime | None = None
+
+
 class PiggyBankResponse(BaseModel):
     balance: float = 0
     transactions: list[PiggyBankTransactionPayload] = Field(default_factory=list)
@@ -2034,6 +2056,9 @@ class PiggyBankResponse(BaseModel):
     ownerProfitPaid: float = 0
     ownerProfitBalance: float = 0
     spenderDebts: list[PiggyBankSpenderDebt] = Field(default_factory=list)
+    # «Не в копилке»: неоплаченные завершённые, оплаченные-но-отменённые,
+    # добавленные задним числом после последней корректировки группы.
+    notInPiggy: list[PiggyNotCountedItem] = Field(default_factory=list)
     # Маркер версии weekly-формулы (см. WEEKLY_FORMULA_VERSION в main.py).
     weeklyFormula: str = ""
     # ── Снимок текущей недели (суббота → сейчас, без учёта заработка недели) ──
