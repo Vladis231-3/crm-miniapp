@@ -293,6 +293,38 @@ class SlotGuardTests(unittest.TestCase):
         )
         self.assertEqual(second.status_code, 200, second.text)
 
+    def test_completed_booking_ignores_working_hours(self) -> None:
+        # Проведение (completed) не ограничено графиком: длинную работу можно
+        # перенести и завершить на любое время. Активный статус — по-прежнему 400.
+        created = self.client.post(
+            "/api/bookings",
+            headers={"Authorization": self.owner_token},
+            json=self.booking_payload("09:30"),
+        )
+        self.assertEqual(created.status_code, 200, created.text)
+        booking_id = created.json()["id"]
+        blocked = self.client.patch(
+            f"/api/bookings/{booking_id}",
+            headers={"Authorization": self.owner_token},
+            json={"time": "10:00", "duration": 900},
+        )
+        self.assertEqual(blocked.status_code, 400, blocked.text)
+        self.assertIn("позже закрытия", blocked.json()["detail"])
+        done = self.client.patch(
+            f"/api/bookings/{booking_id}",
+            headers={"Authorization": self.owner_token},
+            json={
+                "status": "completed",
+                "time": "23:30",
+                "duration": 900,
+                "paymentSettled": True,
+            },
+        )
+        self.assertEqual(done.status_code, 200, done.text)
+        self.assertEqual(done.json()["status"], "completed")
+        self.assertEqual(done.json()["time"], "23:30")
+        self.assertEqual(done.json()["duration"], 900)
+
     def test_dirty_data_defers_slot_migration(self) -> None:
         from sqlalchemy import select, text
 

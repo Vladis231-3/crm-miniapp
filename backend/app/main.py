@@ -15172,7 +15172,11 @@ def update_booking(
 
         _ensure_booking_datetime_not_in_past(next_date, next_time, session_data["role"])
 
-        _ensure_booking_within_schedule(db, next_date, next_time, next_duration)
+        # График работы проверяем только для активных статусов: завершённую/отменённую
+        # запись (уже выполненная работа) можно провести на любое время и длительность.
+        if next_requires_slot:
+
+            _ensure_booking_within_schedule(db, next_date, next_time, next_duration)
 
     if _booking_requires_scheduled_slot(next_status):
 

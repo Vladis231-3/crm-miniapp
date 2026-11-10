@@ -319,7 +319,12 @@ function DayBookingCard({
                 </span>
               )}
             </div>
-            <StatusBadge status={booking.status} className="shrink-0" />
+            <div className="flex shrink-0 items-center gap-1.5">
+          {booking.status === 'completed' && !booking.paymentSettled && (
+            <span className="shrink-0 rounded-full bg-red-500/15 px-1.5 py-0.5 text-[10px] text-red-500">Не оплачено</span>
+          )}
+          <StatusBadge status={booking.status} className="shrink-0" />
+        </div>
           </div>
           <div className={`text-sm ${sub}`}>
             {booking.service}
@@ -369,7 +374,12 @@ function OtherBookingRow({ booking, onOpen }: { booking: Booking; onOpen: () => 
             {booking.date}
           </div>
         </div>
-        <StatusBadge status={booking.status} className="shrink-0" />
+        <div className="flex shrink-0 items-center gap-1.5">
+          {booking.status === 'completed' && !booking.paymentSettled && (
+            <span className="shrink-0 rounded-full bg-red-500/15 px-1.5 py-0.5 text-[10px] text-red-500">Не оплачено</span>
+          )}
+          <StatusBadge status={booking.status} className="shrink-0" />
+        </div>
       </div>
     </motion.button>
   );

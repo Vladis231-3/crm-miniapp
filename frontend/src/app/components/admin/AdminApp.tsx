@@ -924,7 +924,8 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
     return nextErrors;
   };
 
-  const validateBookingDateForEdit = (dateValue: string, timeValue: string, durationMinutes: number): { date?: string; time?: string } => {
+  // checkSchedule=false — для неактивных статусов (завершена/отменена): график работы не проверяем.
+  const validateBookingDateForEdit = (dateValue: string, timeValue: string, durationMinutes: number, checkSchedule = true): { date?: string; time?: string } => {
     const nextErrors: { date?: string; time?: string } = {};
     const parsedDate = parseFlexibleDate(dateValue.trim());
     if (!parsedDate) {
@@ -932,7 +933,7 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
       return nextErrors;
     }
     const scheduleDay = schedule.find((entry) => entry.dayIndex === getScheduleDayIndex(parsedDate));
-    if (!scheduleDay || !scheduleDay.active) {
+    if (checkSchedule && (!scheduleDay || !scheduleDay.active)) {
       nextErrors.date = 'На выбранную дату запись недоступна';
     }
 
@@ -942,7 +943,7 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
       nextErrors.time = 'Укажите время в формате ЧЧ:ММ';
       return nextErrors;
     }
-    if (!nextErrors.date && scheduleDay) {
+    if (checkSchedule && !nextErrors.date && scheduleDay) {
       const openMinutes = timeToMinutes(scheduleDay.open);
       const closeMinutes = timeToMinutes(scheduleDay.close);
       const slotEnd = slotStart + Math.max(1, durationMinutes);
@@ -1237,7 +1238,7 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
       const statusNeedsSlot = ['new', 'confirmed', 'scheduled', 'in_progress'].includes(editBookingDraft.status);
       const slotChanged = editBookingDraft.date !== selectedBooking.date || editBookingDraft.time !== selectedBooking.time;
       if (statusNeedsSlot || slotChanged) {
-        const validationErrors = validateBookingDateForEdit(editBookingDraft.date, editBookingDraft.time, selectedBooking.duration);
+        const validationErrors = validateBookingDateForEdit(editBookingDraft.date, editBookingDraft.time, selectedBooking.duration, statusNeedsSlot);
         if (validationErrors.date || validationErrors.time) {
           setEditBookingError(validationErrors.date || validationErrors.time || 'Проверьте дату и время');
           return;

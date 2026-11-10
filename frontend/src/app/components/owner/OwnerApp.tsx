@@ -3985,6 +3985,9 @@ paymentSettled: false,
     dateValue: string,
     timeValue: string,
     durationMinutes: number,
+    // График работы проверяем только для активных статусов: завершённую/отменённую
+    // запись можно сохранить на любое время и с любой длительностью.
+    checkSchedule = true,
   ): { date?: string; time?: string } => {
     const nextErrors: { date?: string; time?: string } = {};
     const parsedDate = parseFlexibleDate(dateValue.trim());
@@ -3993,7 +3996,7 @@ paymentSettled: false,
       return nextErrors;
     }
     const scheduleDay = schedule.find((entry) => entry.dayIndex === getScheduleDayIndex(parsedDate));
-    if (!scheduleDay || !scheduleDay.active) {
+    if (checkSchedule && (!scheduleDay || !scheduleDay.active)) {
       nextErrors.date = 'На выбранную дату запись недоступна';
     }
     const slotStart = parseOwnerBookingMinutes(timeValue.trim());
@@ -4001,7 +4004,7 @@ paymentSettled: false,
       nextErrors.time = 'Укажите время в формате ЧЧ:ММ';
       return nextErrors;
     }
-    if (!nextErrors.date && scheduleDay) {
+    if (checkSchedule && !nextErrors.date && scheduleDay) {
       const openMinutes = parseOwnerBookingMinutes(scheduleDay.open);
       const closeMinutes = parseOwnerBookingMinutes(scheduleDay.close);
       const slotEnd = slotStart + Math.max(1, durationMinutes);
@@ -4057,7 +4060,7 @@ paymentSettled: false,
           || ownerBookingEditFull.duration !== selectedBooking.duration;
         const statusNeedsSlot = ['new', 'confirmed', 'scheduled', 'in_progress'].includes(ownerBookingEditFull.status);
         if (slotChanged || statusNeedsSlot) {
-          const slotErrors = validateOwnerEditSlot(ownerBookingEditFull.date, ownerBookingEditFull.time, ownerBookingEditFull.duration);
+          const slotErrors = validateOwnerEditSlot(ownerBookingEditFull.date, ownerBookingEditFull.time, ownerBookingEditFull.duration, statusNeedsSlot);
           if (slotErrors.date || slotErrors.time) {
             setOwnerBookingEditError(slotErrors.date || slotErrors.time || 'Проверьте дату и время');
             return;
@@ -4114,7 +4117,7 @@ paymentSettled: false,
         const slotChanged = ownerBookingEditDate !== selectedBooking.date || ownerBookingEditTime !== selectedBooking.time;
         const statusNeedsSlot = ['new', 'confirmed', 'scheduled', 'in_progress'].includes(selectedBooking.status);
         if (slotChanged || statusNeedsSlot) {
-          const slotErrors = validateOwnerEditSlot(ownerBookingEditDate, ownerBookingEditTime, selectedBooking.duration);
+          const slotErrors = validateOwnerEditSlot(ownerBookingEditDate, ownerBookingEditTime, selectedBooking.duration, statusNeedsSlot);
           if (slotErrors.date || slotErrors.time) {
             setOwnerBookingEditError(slotErrors.date || slotErrors.time || 'Проверьте дату и время');
             return;
@@ -4843,7 +4846,7 @@ paymentSettled: false,
                                 <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-violet-500/15 text-violet-600 shrink-0">Повторный</span>
                               )}
                             </div>
-                            <span className={`text-[10px] px-1.5 py-0.5 rounded-full shrink-0 ${ownerStatusBadge(booking.status)}`}>{ownerStatusLabel(booking.status)}</span>
+                            {booking.status === 'completed' && !booking.paymentSettled && (<span className="text-[10px] px-1.5 py-0.5 rounded-full shrink-0 bg-red-500/15 text-red-500">Не оплачено</span>)}<span className={`text-[10px] px-1.5 py-0.5 rounded-full shrink-0 ${ownerStatusBadge(booking.status)}`}>{ownerStatusLabel(booking.status)}</span>
                           </div>
                           <div className={`text-sm ${sub}`}>{booking.service}</div>
                           {(booking.car || booking.plate) && (
@@ -11283,7 +11286,7 @@ paymentSettled: false,
                                 <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-violet-500/15 text-violet-600 shrink-0">Повторный</span>
                               )}
                             </div>
-                            <span className={`text-[10px] px-1.5 py-0.5 rounded-full shrink-0 ${ownerStatusBadge(booking.status)}`}>{ownerStatusLabel(booking.status)}</span>
+                            {booking.status === 'completed' && !booking.paymentSettled && (<span className="text-[10px] px-1.5 py-0.5 rounded-full shrink-0 bg-red-500/15 text-red-500">Не оплачено</span>)}<span className={`text-[10px] px-1.5 py-0.5 rounded-full shrink-0 ${ownerStatusBadge(booking.status)}`}>{ownerStatusLabel(booking.status)}</span>
                           </div>
                           <div className={`text-sm ${sub} truncate`}>{booking.service}</div>
                           {(booking.car || booking.plate) && (
@@ -11390,7 +11393,7 @@ paymentSettled: false,
                                   <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-violet-500/15 text-violet-600 shrink-0">Повторный</span>
                                 )}
                               </div>
-                              <span className={`text-[10px] px-1.5 py-0.5 rounded-full shrink-0 ${ownerStatusBadge(booking.status)}`}>{ownerStatusLabel(booking.status)}</span>
+                              {booking.status === 'completed' && !booking.paymentSettled && (<span className="text-[10px] px-1.5 py-0.5 rounded-full shrink-0 bg-red-500/15 text-red-500">Не оплачено</span>)}<span className={`text-[10px] px-1.5 py-0.5 rounded-full shrink-0 ${ownerStatusBadge(booking.status)}`}>{ownerStatusLabel(booking.status)}</span>
                             </div>
                             <div className={`text-sm ${sub} truncate`}>{booking.service}</div>
                             {(booking.car || booking.plate) && (
