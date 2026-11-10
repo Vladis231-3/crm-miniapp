@@ -270,6 +270,50 @@ class PiggyNotCountedTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200, response.text)
         self.assertEqual(self._items(booking_id), [], "удалённая запись из блока ушла")
 
+    def test_cancelled_booking_material_repayment_not_in_balance(self) -> None:
+        """Авто-возврат за материалы — деньги клиента: отменили — их нет.
+
+        Само снятие на материалы (реальная трата) остаётся в балансе всегда.
+        """
+        from app.database import SessionLocal
+        from app.models import PiggyBankTransaction
+
+        booking_id = self._create_completed(price=2000, settled=False)
+        net0 = float(self._piggy()["detailing"]["netPiggy"])
+        with SessionLocal() as db:
+            db.add(
+                PiggyBankTransaction(
+                    id=f"pb-{uuid4()}",
+                    booking_id=booking_id,
+                    amount=-300,
+                    transaction_type="material_withdrawal",
+                    purpose="Плёнка под заказ (тест)",
+                    date=self._today(),
+                    resource_group="detailing",
+                )
+            )
+            db.commit()
+        self.assertAlmostEqual(float(self._piggy()["detailing"]["netPiggy"]), net0 - 300, places=2)
+
+        # Оплата: вклад 480 + возврат 300 за материалы.
+        self._patch(booking_id, {"paymentSettled": True})
+        self.assertAlmostEqual(float(self._piggy()["detailing"]["netPiggy"]), net0 + 480, places=2)
+
+        self._patch(booking_id, {"status": "cancelled", "cancelReason": "changed_mind"})
+        piggy = self._piggy()
+        # Ни вклада, ни возврата — только реальная трата на материалы.
+        self.assertAlmostEqual(float(piggy["detailing"]["netPiggy"]), net0 - 300, places=2)
+        items = self._items(booking_id, "cancelled")
+        self.assertEqual(len(items), 1, items)
+        self.assertAlmostEqual(items[0]["amount"], 780, places=2)
+        types = {t["transactionType"] for t in piggy["transactions"] if t["bookingId"] == booking_id}
+        self.assertEqual(types, {"material_withdrawal"}, "в списке — только снятие")
+
+        # Вернули в завершённые — проводки снова живые, без дублей.
+        self._patch(booking_id, {"status": "completed"})
+        self.assertAlmostEqual(float(self._piggy()["detailing"]["netPiggy"]), net0 + 480, places=2)
+        self.assertEqual(self._items(booking_id), [])
+
     def test_booking_closed_after_adjust_is_flagged(self) -> None:
         before_id = self._create_completed(price=2000)
         response = self.client.post(

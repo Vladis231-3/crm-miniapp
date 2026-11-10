@@ -51,6 +51,8 @@ import {
 import { FIXED_MASTER_EARNED, formatFixedMasterAmount, isFixedMasterService } from '../ui/utils';
 import { bookingMainOutsource, dopWorkerEarned, mainWorkerEarned } from '../../utils/moneySplit';
 import { REFERRAL_SOURCES } from '../../constants/referralSources';
+import { cancelReasonLabel, isRefusalStatus } from '../../constants/cancelReasons';
+import { CANCEL_ABORTED_MESSAGE, useCancelGuardedUpdate } from '../shared/CancelReasonDialog';
 
 // Helper for unlimited category nesting — returns categoryId + all descendant ids
 function stockCategoryIdsWithDescendants(rootId: string, categories: { id: string; parentId?: string }[]): string[] {
@@ -336,7 +338,7 @@ export function AdminApp() {
     clients: registeredClients,
     addClient,
     updateClientCard,
-    updateBooking,
+    updateBooking: rawUpdateBooking,
     addBooking,
     addBookingService,
     addBookingAdditionalService,
@@ -379,6 +381,8 @@ export function AdminApp() {
     tomorrowLabel,
     upcomingDates,
   } = useApp();
+  // Любая отмена / «не приехал» сначала спрашивает причину.
+  const { updateBooking, askCancelReason, cancelReasonDialog } = useCancelGuardedUpdate(bookings, rawUpdateBooking);
   const [page, setPage] = useState<AdminPage>('calendar');
   const [settingsSection, setSettingsSection] = useState<SettingsSection>(null);
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
@@ -761,7 +765,15 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
       openEditModal(target, 'edit');
       return;
     }
-    await updateBooking(id, { status });
+    try {
+      await updateBooking(id, { status });
+    } catch (error) {
+      // Диалог причины закрыли — ничего не меняем; прочие ошибки показываем.
+      if (!(error instanceof Error) || error.message !== CANCEL_ABORTED_MESSAGE) {
+        window.alert(error instanceof Error ? error.message : 'Не удалось изменить статус');
+      }
+      return;
+    }
     if (selectedBooking?.id === id) setSelectedBooking(prev => prev ? { ...prev, status } : null);
   };
 
@@ -1309,9 +1321,10 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
     if (!selectedBooking) return;
     if (selectedBooking.status === 'cancelled') return;
     const name = selectedBooking.clientName || `запись #${selectedBooking.id.slice(0, 6)}`;
-    if (!window.confirm(`Отменить запись клиента "${name}"? Она перейдёт в статус «Отменено».`)) return;
+    const picked = await askCancelReason('cancelled', name);
+    if (!picked) return;
     try {
-      await updateBooking(selectedBooking.id, { status: 'cancelled' });
+      await updateBooking(selectedBooking.id, { status: 'cancelled', ...picked });
       setSelectedBooking((current) => (current ? { ...current, status: 'cancelled' } : null));
       setShowEditModal(false);
     } catch (error) {
@@ -1598,6 +1611,7 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
 
   return (
     <div className={`${isDark ? 'dark' : ''} atmosfera-shell ${bg} ${text} min-h-screen flex flex-col`}>
+      {cancelReasonDialog}
       {/* Header */}
       <div className={`work-header ${glass} flex items-center justify-between`}>
         <button onClick={() => setShowMenu(true)} className={`p-2 rounded-xl ${glass}`}><Menu size={20} strokeWidth={1.75} /></button>
@@ -2223,6 +2237,16 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
                     <p className={`text-sm ${sub}`}>Материалы не указаны  -  добавь в «Редактировать»</p>
                   )}
                 </div>
+                {isRefusalStatus(selectedBooking.status) && (() => {
+                  const live = bookings.find((b) => b.id === selectedBooking.id) || selectedBooking;
+                  return (
+                    <div className={`${glass} rounded-2xl p-4`}>
+                      <div className={`text-xs font-medium ${sub} mb-1`}>ПРИЧИНА ОТМЕНЫ</div>
+                      <div className="text-sm text-red-500">{cancelReasonLabel(live.cancelReason || (live.status === 'no_show' ? 'no_show' : ''))}</div>
+                      {live.cancelComment?.trim() ? <div className={`text-xs ${sub} mt-1`}>{live.cancelComment.trim()}</div> : null}
+                    </div>
+                  );
+                })()}
                 {selectedBooking.status !== 'cancelled' && (
                   <div className={`${glass} rounded-2xl p-4`}>
                     <BookingOutsourceEditor

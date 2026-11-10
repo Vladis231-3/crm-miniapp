@@ -259,6 +259,14 @@ class Booking(Base):
     # Повторный визит (клиент уже был раньше).
     is_repeat_visit: Mapped[bool] = mapped_column(Boolean, default=False)
 
+    # Причина отмены / неявки (код из CANCEL_REASON_CODES) и свободный комментарий.
+    cancel_reason: Mapped[str] = mapped_column(String(32), default="")
+    cancel_comment: Mapped[str] = mapped_column(Text, default="")
+    cancelled_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True, default=None
+    )
+    cancelled_by: Mapped[str] = mapped_column(String(64), default="")
+
     # Аутсорс основной услуги: сумма уходит исполнителю до деления остатка.
     is_outsource: Mapped[bool] = mapped_column(Boolean, default=False)
     outsource_amount: Mapped[int | None] = mapped_column(Integer, nullable=True, default=None)

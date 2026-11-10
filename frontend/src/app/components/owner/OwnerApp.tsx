@@ -46,6 +46,9 @@ import { OutsourcersPage } from './OutsourcersPage';
 import { MoneyRecalcCard } from './MoneyRecalcCard';
 import { formatFixedMasterAmount, isFixedMasterService } from '../ui/utils';
 import { REFERRAL_SOURCES } from '../../constants/referralSources';
+import { cancelReasonLabel, isRefusalStatus } from '../../constants/cancelReasons';
+import { useCancelGuardedUpdate } from '../shared/CancelReasonDialog';
+import { CancellationStatsCard } from '../shared/CancellationStatsCard';
 
 // Helper for unlimited category nesting  -  returns categoryId + all descendant ids
 function stockCategoryIdsWithDescendants(rootId: string, categories: { id: string; parentId?: string }[]): string[] {
@@ -847,7 +850,7 @@ export function OwnerApp() {
     markNotificationRead,
     sendWorkerBroadcast,
     addBooking,
-    updateBooking,
+    updateBooking: rawUpdateBooking,
     addBookingAdditionalService,
     updateBookingAdditionalService,
     removeBookingAdditionalService,
@@ -895,6 +898,8 @@ export function OwnerApp() {
       todayLabel,
       tomorrowLabel,
   } = useApp();
+  // Любая отмена / «не приехал» сначала спрашивает причину.
+  const { updateBooking, askCancelReason, cancelReasonDialog } = useCancelGuardedUpdate(bookings, rawUpdateBooking);
   const isAccountant = session?.role === 'accountant';
   const modalMaxHeight = useVisualViewport();
   const financeRoleTitle = isAccountant ? 'Бухгалтер' : 'Владелец';
@@ -4157,9 +4162,10 @@ paymentSettled: false,
     if (!selectedBooking) return;
     if (selectedBooking.status === 'cancelled') return;
     const name = selectedBooking.clientName || `запись #${selectedBooking.id.slice(0, 6)}`;
-    if (!window.confirm(`Отменить запись клиента "${name}"? Она перейдёт в статус «Отменена».`)) return;
+    const picked = await askCancelReason('cancelled', name);
+    if (!picked) return;
     try {
-      await updateBooking(selectedBooking.id, { status: 'cancelled' });
+      await updateBooking(selectedBooking.id, { status: 'cancelled', ...picked });
       setSelectedBooking((current) => (current ? { ...current, status: 'cancelled' } : null));
       setOwnerBookingEditMode(null);
       setOwnerBookingEditError(null);
@@ -4344,7 +4350,16 @@ paymentSettled: false,
     { name: 'В работе', status: 'in_progress' as BookingStatus, value: weeklyBookings.filter(b => b.status === 'in_progress').length, color: '#EAB308' },
     { name: 'Завершено', status: 'completed' as BookingStatus, value: weeklyBookings.filter(b => b.status === 'completed').length, color: '#22C55E' },
     { name: 'Не приехал', status: 'no_show' as BookingStatus, value: weeklyBookings.filter(b => b.status === 'no_show').length, color: '#F97316' },
+    { name: 'Отменено', status: 'cancelled' as BookingStatus, value: weeklyBookings.filter(b => b.status === 'cancelled').length, color: '#EF4444' },
   ].filter(s => s.value > 0);
+  // Статистика отказов — за последние 30 дней.
+  const cancelStatsFrom = new Date();
+  cancelStatsFrom.setHours(0, 0, 0, 0);
+  cancelStatsFrom.setDate(cancelStatsFrom.getDate() - 29);
+  const cancelStatsBookings = bookings.filter((b) => {
+    const parsed = parseFlexibleDate(b.date);
+    return parsed !== null && parsed >= cancelStatsFrom;
+  });
   const topServiceName = [...byService].sort((left, right) => right.revenue - left.revenue)[0]?.name || 'Нет данных';
   const ownerCalendarRelevantBookings = bookings.filter((booking) => booking.status !== 'cancelled');
   const ownerCalendarUndatedBookings = ownerCalendarRelevantBookings.filter((b) => !b.date?.trim());
@@ -4466,6 +4481,7 @@ paymentSettled: false,
 
   return (
     <div className={`${isDark ? 'dark' : ''} atmosfera-shell ${bg} ${text} min-h-screen flex flex-col`} data-owner-build="2026-04-03-5">
+      {cancelReasonDialog}
       {/* Header */}
       <div className={`work-header ${glass} flex items-center justify-between`}>
         <div className="min-w-0">
@@ -4991,6 +5007,7 @@ paymentSettled: false,
                   </motion.button>
                 ))}
               </div>
+              <CancellationStatsCard bookings={cancelStatsBookings} periodLabel="за 30 дней" className="mb-4" />
               {/* Status pie + recent */}
               <div className="grid grid-cols-2 gap-3 mb-4">
                 <div className={`${glass} rounded-2xl p-3`}>
@@ -10600,6 +10617,15 @@ paymentSettled: false,
                     )}
                     <div className={sub}>Телефон: {selectedBooking.clientPhone || 'Не указан'}</div>
                     <div className={sub}>Комментарий: {selectedBooking.notes?.trim() || 'Нет'}</div>
+                    {isRefusalStatus(selectedBooking.status) && (() => {
+                      const live = bookings.find((b) => b.id === selectedBooking.id) || selectedBooking;
+                      return (
+                        <div className="text-red-500">
+                          Причина отмены: {cancelReasonLabel(live.cancelReason || (live.status === 'no_show' ? 'no_show' : ''))}
+                          {live.cancelComment?.trim() ? ` — ${live.cancelComment.trim()}` : ''}
+                        </div>
+                      );
+                    })()}
                   </div>
                   {((selectedBooking.services && selectedBooking.services.length > 0) || (selectedBooking.additionalServices && selectedBooking.additionalServices.length > 0)) && (
                     <div className="mt-3 pt-3 border-t" style={{ borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' }}>

@@ -518,6 +518,20 @@ class OutsourcerUpdateRequest(BaseModel):
     active: bool | None = None
 
 
+# Причины отмены / неявки. Пустая строка — причина не указана (старые записи).
+CANCEL_REASON_CODES = (
+    "no_show",
+    "changed_mind",
+    "found_cheaper",
+    "rescheduled",
+    "price",
+    "our_fault",
+    "duplicate",
+    "client_cancelled",
+    "other",
+)
+
+
 class BookingPayload(BaseModel):
     id: str
     clientId: str
@@ -548,6 +562,9 @@ class BookingPayload(BaseModel):
     source: str | None = None
     referralSource: str = ""
     isRepeatVisit: bool = False
+    cancelReason: str = ""
+    cancelComment: str = ""
+    cancelledAt: datetime | None = None
     isOutsource: bool = False
     outsourceAmount: int | None = None
     outsourcerId: str | None = None
@@ -1368,6 +1385,18 @@ class BookingUpdateRequest(BaseModel):
     materials: list[BookingMaterialPayload] | None = None
     referralSource: str | None = None
     isRepeatVisit: bool | None = None
+    cancelReason: str | None = None
+    cancelComment: str | None = Field(default=None, max_length=1000)
+
+    @field_validator("cancelReason")
+    @classmethod
+    def validate_cancel_reason(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        value = value.strip()
+        if value and value not in CANCEL_REASON_CODES:
+            raise ValueError("Неизвестная причина отмены")
+        return value
 
     @field_validator("date")
     @classmethod
@@ -2190,6 +2219,8 @@ class BookingHistoryItem(BaseModel):
     paymentSettled: bool = False
     workers: list[BookingWorkerPayload] = Field(default_factory=list)
     createdAt: datetime
+    cancelReason: str = ""
+    cancelComment: str = ""
 
 
 class BookingTotalsWorkerItem(BaseModel):

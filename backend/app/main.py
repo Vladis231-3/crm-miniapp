@@ -2887,6 +2887,18 @@ def _apply_runtime_migrations() -> None:
                 connection.exec_driver_sql(
                     "ALTER TABLE bookings ADD COLUMN is_repeat_visit BOOLEAN NOT NULL DEFAULT FALSE"
                 )
+        # Причина отмены / неявки.
+        for _col, _ddl in (
+            ("cancel_reason", "VARCHAR(32) DEFAULT ''"),
+            ("cancel_comment", "TEXT DEFAULT ''"),
+            ("cancelled_at", "TIMESTAMP"),
+            ("cancelled_by", "VARCHAR(64) DEFAULT ''"),
+        ):
+            if _col not in booking_gc_columns:
+                with engine.begin() as connection:
+                    connection.exec_driver_sql(
+                        f"ALTER TABLE bookings ADD COLUMN {_col} {_ddl}"
+                    )
         # Карта событий по каждому подключённому Google-календарю
         # (мультиподключение): {connection_id: event_id}.
         if "google_event_ids" not in booking_gc_columns:
@@ -5048,6 +5060,9 @@ def _booking_payload(
         source=getattr(booking, "source", None),
         referralSource=getattr(booking, "referral_source", None) or "",
         isRepeatVisit=bool(getattr(booking, "is_repeat_visit", False)),
+        cancelReason=getattr(booking, "cancel_reason", None) or "",
+        cancelComment=getattr(booking, "cancel_comment", None) or "",
+        cancelledAt=getattr(booking, "cancelled_at", None),
         isOutsource=bool(booking.is_outsource),
         outsourceAmount=booking.outsource_amount,
         outsourcerId=booking.outsourcer_id,
@@ -10004,6 +10019,13 @@ def _owner_export_file(
 
 
 
+# Проводки копилки, которые существуют только пока их запись завершена:
+# вклад и авто-возврат за материалы приходят из денег клиента. Отменили или
+# удалили запись — денег нет, в баланс они не входят. Само снятие на
+# материалы (material_withdrawal) — реальная трата, остаётся всегда.
+BOOKING_BOUND_PIGGY_TX_TYPES = ("deposit_24percent", "material_repayment")
+
+
 def _live_piggy_transactions(db: Session) -> list[PiggyBankTransaction]:
     """Проводки копилки так, как их считает приложение (GET /piggy-bank).
 
@@ -10025,7 +10047,7 @@ def _live_piggy_transactions(db: Session) -> list[PiggyBankTransaction]:
     )
     return [
         t for t in txs
-        if t.transaction_type != "deposit_24percent"
+        if t.transaction_type not in BOOKING_BOUND_PIGGY_TX_TYPES
         or not t.booking_id
         or t.booking_id in completed_ids
     ]
@@ -14997,6 +15019,10 @@ def update_booking(
 
             "paymentSettled",
 
+            "cancelReason",
+
+            "cancelComment",
+
         }
 
         if payload.workers is not None:
@@ -15115,6 +15141,44 @@ def update_booking(
     next_box = (updates.get("box", booking.box) or "").strip()
 
     next_status = updates.get("status", booking.status)
+
+    # Причина отмены/неявки. Обязательность выбора — на фронте: старые клиенты
+    # (кэш мини-аппа) шлют отмену без причины, и она не должна падать.
+    cancel_reason_in = updates.pop("cancelReason", None)
+    cancel_comment_in = updates.pop("cancelComment", None)
+    _closed_statuses = {"cancelled", "no_show"}
+    if next_status in _closed_statuses:
+        _entering = previous_status not in _closed_statuses
+        _reason = (
+            cancel_reason_in
+            if cancel_reason_in is not None
+            else ("" if _entering else (booking.cancel_reason or ""))
+        ).strip()
+        _comment = (
+            cancel_comment_in
+            if cancel_comment_in is not None
+            else ("" if _entering else (booking.cancel_comment or ""))
+        ).strip()
+        if not _reason and next_status == "no_show":
+            _reason = "no_show"
+        if _reason == "other" and not _comment:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Укажите комментарий к причине отмены",
+            )
+        booking.cancel_reason = _reason
+        booking.cancel_comment = _comment
+        if _entering or booking.cancelled_at is None:
+            booking.cancelled_at = _now()
+            booking.cancelled_by = (
+                f'{session_data["role"]}:{session_data.get("actorId") or ""}'[:64]
+            )
+    elif previous_status in _closed_statuses:
+        # Вернули в работу — причина больше не актуальна.
+        booking.cancel_reason = ""
+        booking.cancel_comment = ""
+        booking.cancelled_at = None
+        booking.cancelled_by = ""
 
     next_payment_settled = updates.get("paymentSettled", booking.payment_settled)
 
@@ -17856,7 +17920,7 @@ def _piggy_not_counted_items(
         completed_ids = {b.id for b in completed_bookings}
         dead: dict[tuple[str, str], float] = {}
         for t in all_txs:
-            if t.transaction_type != "deposit_24percent" or not t.booking_id:
+            if t.transaction_type not in BOOKING_BOUND_PIGGY_TX_TYPES or not t.booking_id:
                 continue
             if t.booking_id in completed_ids:
                 continue
@@ -18025,7 +18089,7 @@ def get_piggy_bank(
     )
     filtered_tx = [
         t for t in filtered_tx
-        if t.transaction_type != "deposit_24percent"
+        if t.transaction_type not in BOOKING_BOUND_PIGGY_TX_TYPES
         or not t.booking_id
         or t.booking_id in _live_booking_ids
     ]
@@ -18359,7 +18423,7 @@ def get_piggy_bank(
 
     def _is_live_deposit(_t: Any) -> bool:
         try:
-            if getattr(_t, "transaction_type", "") != "deposit_24percent":
+            if getattr(_t, "transaction_type", "") not in BOOKING_BOUND_PIGGY_TX_TYPES:
                 return True
             _bid = getattr(_t, "booking_id", None)
             if not _bid:
@@ -18405,7 +18469,7 @@ def get_piggy_bank(
 
     withdrawals = sum(abs(t.amount) for t in all_tx if t.transaction_type in ("material_withdrawal", "other_withdrawal") and t.amount < 0 and t.resource_group == "detailing" and _in_range(t.date))
 
-    repayments = sum(t.amount for t in all_tx if t.transaction_type == "material_repayment" and t.resource_group == "detailing" and _in_range(t.date))
+    repayments = sum(t.amount for t in all_tx if t.transaction_type == "material_repayment" and t.resource_group == "detailing" and _in_range(t.date) and _is_live_deposit(t))
 
     remaining = _bucket(WASH_RESOURCE_GROUP, _in_range)
     net_piggy = _bucket("detailing", _in_range)
@@ -24503,6 +24567,8 @@ def get_owner_bookings_history(
                 for w in b.worker_links
             ],
             createdAt=b.created_at,
+            cancelReason=b.cancel_reason or "",
+            cancelComment=b.cancel_comment or "",
         )
         for b in bookings
     ]

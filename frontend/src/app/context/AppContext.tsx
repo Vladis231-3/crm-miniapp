@@ -244,6 +244,10 @@ export interface Booking {
   referralSource?: string;
   /** Повторный визит */
   isRepeatVisit?: boolean;
+  /** Причина отмены / неявки (код из constants/cancelReasons) и комментарий */
+  cancelReason?: string;
+  cancelComment?: string;
+  cancelledAt?: string | null;
   startedAt?: string | null;
   completedAt?: string | null;
 }

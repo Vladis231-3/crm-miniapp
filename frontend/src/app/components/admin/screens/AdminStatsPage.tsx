@@ -8,6 +8,7 @@ import { useApp } from '../../../context/AppContext';
 import { formatDate, getLastNDates, parseFlexibleDate } from '../../../utils/date';
 import { isFixedMasterService, FIXED_MASTER_EARNED } from '../../ui/utils';
 import { Money, StatTile } from '../../atmosfera';
+import { CancellationStatsCard } from '../../shared/CancellationStatsCard';
 
 type Period = 'day' | 'week' | 'month' | 'all';
 
@@ -236,6 +237,8 @@ export function AdminStatsPage() {
         <StatTile label="На сегодня" value={String(todayBookings.length)} />
         <StatTile label="В работе" value={String(filtered.filter((b) => b.status === 'in_progress').length)} />
       </div>
+
+      <CancellationStatsCard bookings={filtered} />
 
       {/* Выручка по дням */}
       {period !== 'day' && (
