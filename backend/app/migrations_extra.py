@@ -339,6 +339,32 @@ def upgrade_booking_main_outsource() -> str:
     return "applied"
 
 
+def upgrade_booking_cancel_reason() -> str:
+    """007: причина отмены/неявки записи (cancel_reason, cancel_comment,
+    cancelled_at, cancelled_by). Только версионным путём (см. урок в 005).
+    """
+    from sqlalchemy import inspect as sa_inspect
+    from sqlalchemy import text
+
+    from .database import engine
+
+    insp = sa_inspect(engine)
+    if "bookings" not in insp.get_table_names():
+        return "applied"
+    existing = {col["name"] for col in insp.get_columns("bookings")}
+    wanted = {
+        "cancel_reason": "VARCHAR(32) DEFAULT ''",
+        "cancel_comment": "TEXT DEFAULT ''",
+        "cancelled_at": "TIMESTAMP",
+        "cancelled_by": "VARCHAR(64) DEFAULT ''",
+    }
+    with engine.begin() as connection:
+        for name, ddl in wanted.items():
+            if name not in existing:
+                connection.execute(text(f"ALTER TABLE bookings ADD COLUMN {name} {ddl}"))
+    return "applied"
+
+
 EXTRA_MIGRATIONS: list[tuple[str, Callable[[], str | None]]] = [
     (SLOT_UNIQUE_ID, upgrade_slot_unique_index),
     (OPKEY_ID, upgrade_op_keys),
@@ -346,4 +372,5 @@ EXTRA_MIGRATIONS: list[tuple[str, Callable[[], str | None]]] = [
     ("2026-10-01-deposit-month-numeric-004", upgrade_deposit_month_numeric),
     ("2026-09-27-booking-split-snapshot-005", upgrade_booking_money_split_snapshot),
     ("2026-11-04-booking-main-outsource-006", upgrade_booking_main_outsource),
+    ("2026-11-11-booking-cancel-reason-007", upgrade_booking_cancel_reason),
 ]

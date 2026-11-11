@@ -1,6 +1,6 @@
 # PROJECT_MAP — карта проекта
 
-> Автосгенерировано 2026-11-10 19:23 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
+> Автосгенерировано 2026-11-11 06:30 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
 
 **Обновление:**
 
@@ -13,7 +13,7 @@ python scripts/generate_project_map.py --install-hook  # git pre-commit хук (
 ## Статистика
 
 - Файлов кода: **529**
-- Строк кода: **188 690**
+- Строк кода: **188 717**
 - По расширениям: `.js`: 3, `.mjs`: 9, `.py`: 160, `.ts`: 41, `.tsx`: 316
 
 ## Архитектура
@@ -1344,9 +1344,9 @@ concept1.0/
 - `_is_self_service_washdef _is_self_service_wash(service: Service | None) -> bool: if service is None: return False if getattr(service, "wash_type", "") == "self_service": return True return _is_box_rent` (стр. 11034)
 - ...ещё 147
 
-### backend/app/migrations_extra.py (349 строк)
+### backend/app/migrations_extra.py (376 строк)
 
-Классы и функции (10):
+Классы и функции (11):
 
 - `_detailing_boxdef _detailing_box() -> str: from .main import DETAILING_REQUEST_BOX # lazy: нет цикла на импорте return DETAILING_REQUEST_BOX` (стр. 38)
 - `_quote_literaldef _quote_literal(value: str) -> str: """Безопасный SQL-литерал: значение только из внутренних констант.""" if "\x00" in value: raise ValueError("NUL byte in SQL literal") return ` (стр. 44)
@@ -1358,6 +1358,7 @@ concept1.0/
 - `upgrade_deposit_month_numericdef upgrade_deposit_month_numeric() -> str: """004: DepositMonth Float -> NUMERIC(18,2) + UNIQUE(client_id, month). - Preflight: все значения обязаны быть конечными (NaN/Inf -> def` (стр. 194)
 - `upgrade_booking_money_split_snapshotdef upgrade_booking_money_split_snapshot() -> str: """005: Booking.money_split_snapshot (заморозка авто-сплита). Урок прод-инцидента 27.09.2026: колонка была добавлена только в тел` (стр. 275)
 - `upgrade_booking_main_outsourcedef upgrade_booking_main_outsource() -> str: """006: аутсорс основной услуги и ссылка на исполнителя. Таблицу outsourcers создаёт create_all. Колонки — только версионным путём (см.` (стр. 307)
+- `upgrade_booking_cancel_reasondef upgrade_booking_cancel_reason() -> str: """007: причина отмены/неявки записи (cancel_reason, cancel_comment, cancelled_at, cancelled_by). Только версионным путём (см. урок в 00` (стр. 342)
 
 ### backend/app/models.py (885 строк)
 
@@ -6090,6 +6091,7 @@ concept1.0/
 
 ## Недавно изменённые файлы
 
+- `backend/app/migrations_extra.py` (2026-11-11 09:19)
 - `frontend/src/app/context/AppContext.tsx` (2026-11-10 22:08)
 - `frontend/src/app/components/owner/OwnerApp.tsx` (2026-11-10 22:08)
 - `frontend/src/app/components/admin/screens/AdminStatsPage.tsx` (2026-11-10 22:08)
@@ -6104,4 +6106,3 @@ concept1.0/
 - `backend/tests/test_cancel_reason.py` (2026-11-10 21:58)
 - `frontend/src/app/components/admin/screens/AdminCalendarDayScreen.tsx` (2026-11-10 21:51)
 - `backend/tests/test_slot_guards.py` (2026-11-10 21:51)
-- `frontend/src/app/components/owner/screens/OwnerPiggyBankScreen.tsx` (2026-11-08 18:28)
