@@ -76,6 +76,64 @@ def _appsetting_model():
     return _AppSetting
 
 
+# ── Шифрование секретов в app_settings (P2-20) ──────────────────────────────
+# Токены календарей и client_secret лежали в app_settings открытым текстом:
+# любой дамп базы/бэкап отдавал доступ к календарям. Шифруем конвертом
+# {"__encrypted": ...}; ключ выводится из APP_SECRET (HKDF-SHA256).
+# Обратная совместимость: старые незашифрованные значения читаются как есть,
+# а при следующей записи перезаписываются шифром.
+
+
+def _secrets_cipher():
+    import base64
+
+    from cryptography.fernet import Fernet
+    from cryptography.hazmat.primitives import hashes
+    from cryptography.hazmat.primitives.kdf.hkdf import HKDF
+
+    from .config import get_settings
+
+    secret = (get_settings().app_secret or "change-me").encode("utf-8")
+    key = HKDF(
+        algorithm=hashes.SHA256(),
+        length=32,
+        salt=b"crm-concept-google-secrets",
+        info=b"google-calendar-credentials",
+    ).derive(secret)
+    return Fernet(base64.urlsafe_b64encode(key))
+
+
+def _encrypt_secret_payload(value: dict[str, Any]) -> dict[str, Any]:
+    try:
+        import json
+
+        token = _secrets_cipher().encrypt(
+            json.dumps(value, ensure_ascii=False).encode("utf-8")
+        )
+        return {"__encrypted": token.decode("ascii")}
+    except Exception:  # noqa: BLE001 — нет cryptography/ключа: пишем как раньше
+        logger.warning("Google secrets encryption unavailable; storing plaintext")
+        return value
+
+
+def _decrypt_secret_payload(value: Any) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        return {}
+    if "__encrypted" not in value:
+        return value
+    try:
+        import json
+
+        raw = _secrets_cipher().decrypt(str(value["__encrypted"]).encode("ascii"))
+        decoded = json.loads(raw.decode("utf-8"))
+        return decoded if isinstance(decoded, dict) else {}
+    except Exception:  # noqa: BLE001
+        logger.warning(
+            "Google secrets cannot be decrypted (APP_SECRET changed?); reconnect the calendar"
+        )
+        return {}
+
+
 def is_configured(settings: Settings, db: Any = None) -> bool:
     """True, если заданы учётные данные Google Calendar.
 
@@ -96,19 +154,19 @@ def load_credentials(db: Any) -> dict[str, Any]:
     row = db.get(AppSetting, GOOGLE_CALENDAR_CREDENTIALS_KEY)
     if row is None:
         return {}
-    value = row.value
-    return value if isinstance(value, dict) else {}
+    return _decrypt_secret_payload(row.value)
 
 
 def save_credentials(db: Any, credentials: dict[str, Any]) -> None:
     """Сохранить учётные данные OAuth-клиента (upsert)."""
     AppSetting = _appsetting_model()
     row = db.get(AppSetting, GOOGLE_CALENDAR_CREDENTIALS_KEY)
+    stored = _encrypt_secret_payload(credentials)
     if row is None:
-        row = AppSetting(key=GOOGLE_CALENDAR_CREDENTIALS_KEY, value=credentials)
+        row = AppSetting(key=GOOGLE_CALENDAR_CREDENTIALS_KEY, value=stored)
         db.add(row)
     else:
-        row.value = credentials
+        row.value = stored
     db.flush()
 
 
@@ -142,9 +200,9 @@ def _read_legacy_tokens(db: Any) -> dict[str, Any]:
     """Токены из старого ключа google_calendar_tokens (до мультиподключения)."""
     AppSetting = _appsetting_model()
     row = db.get(AppSetting, GOOGLE_CALENDAR_TOKENS_KEY)
-    if row is None or not isinstance(row.value, dict):
+    if row is None:
         return {}
-    value = dict(row.value)
+    value = dict(_decrypt_secret_payload(row.value))
     if not value.get("token") and value.get("access_token"):
         value["token"] = value["access_token"]
     return value
@@ -160,7 +218,7 @@ def _read_connections(db: Any) -> list[dict[str, Any]]:
     """
     AppSetting = _appsetting_model()
     row = db.get(AppSetting, GOOGLE_CALENDAR_CONNECTIONS_KEY)
-    raw = row.value if row is not None else None
+    raw = _decrypt_secret_payload(row.value) if row is not None else None
     conns: list[dict[str, Any]] = []
     if isinstance(raw, dict):
         items = raw.get("connections")
@@ -187,7 +245,7 @@ def _write_connections(db: Any, connections: list[dict[str, Any]]) -> None:
             clean.append(item)
     AppSetting = _appsetting_model()
     row = db.get(AppSetting, GOOGLE_CALENDAR_CONNECTIONS_KEY)
-    payload = {"connections": clean}
+    payload = _encrypt_secret_payload({"connections": clean})
     if row is None:
         db.add(AppSetting(key=GOOGLE_CALENDAR_CONNECTIONS_KEY, value=payload))
     else:
@@ -294,8 +352,27 @@ def create_invite(db: Any, label: str, state: str) -> dict[str, Any]:
     return invite
 
 
+# P2-20: приглашение живёт ограниченное время. Ссылка даёт подключившемуся
+# календарю доступ к именам/телефонам/номерам авто всех клиентов, поэтому
+# «вечная» ссылка из переписки — лишний риск.
+_INVITE_TTL_HOURS = 24
+
+
+def _invite_is_fresh(invite: dict[str, Any]) -> bool:
+    raw = invite.get("created_at")
+    if not isinstance(raw, str) or not raw:
+        return False
+    try:
+        created = datetime.fromisoformat(raw)
+    except ValueError:
+        return False
+    if created.tzinfo is None:
+        created = created.replace(tzinfo=UTC)
+    return (datetime.now(UTC) - created).total_seconds() <= _INVITE_TTL_HOURS * 3600
+
+
 def consume_invite(db: Any, state: str) -> dict[str, Any] | None:
-    """Найти приглашение по state и удалить его (одноразовое)."""
+    """Найти приглашение по state и удалить его (одноразовое, TTL 24 ч)."""
     AppSetting = _appsetting_model()
     row = db.get(AppSetting, GOOGLE_CALENDAR_INVITES_KEY)
     if row is None or not isinstance(row.value, dict):
@@ -311,6 +388,11 @@ def consume_invite(db: Any, state: str) -> dict[str, Any] | None:
             continue
         invites.append(item if isinstance(item, dict) else {})
     if found is None:
+        return None
+    if not _invite_is_fresh(found):
+        # Просроченное приглашение не принимаем и не оставляем в списке.
+        row.value = {"invites": invites}
+        db.flush()
         return None
     row.value = {"invites": invites}
     db.flush()

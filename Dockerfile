@@ -44,4 +44,9 @@ USER app:app
 WORKDIR /app/backend
 # --proxy-headers: за Render/Amvera реальный IP клиента приходит в X-Forwarded-For.
 # Без этого rate-limit видит IP прокси и даёт ложные общие 429.
-CMD ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers", "--forwarded-allow-ips", "*"]
+# P1-4: БЕЗ --forwarded-allow-ips "*" — иначе uvicorn верит заголовку
+# X-Forwarded-For от любого клиента, и лимит частоты (перебор паролей,
+# флуд /api/contact) обходится подменой заголовка. Адрес прокси/сети
+# платформы задаётся переменной окружения FORWARDED_ALLOW_IPS
+# (по умолчанию 127.0.0.1 — доверяем только локальному реверс-прокси).
+CMD ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers"]

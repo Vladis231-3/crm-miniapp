@@ -483,11 +483,14 @@ class DepositTests(unittest.TestCase):
                     PiggyBankTransaction.transaction_type == "deposit_24percent",
                 )
             ).all()
-            self.assertEqual(deposits, [], "per_wash: сплит не доигрывается")
+            # P2-13: мойка по тарифу — платная выручка, поэтому сплит (копилка
+            # и доли) проводится сразу при записи, а не только при закрытии.
+            # Тариф 500 ₽: копилка 24% = 120 ₽.
+            self.assertEqual(sorted(d.amount for d in deposits), [120])
             shares = db.scalars(
                 select(OwnerProfitShare).where(OwnerProfitShare.booking_id == booking.id)
             ).all()
-            self.assertEqual(list(shares), [])
+            self.assertEqual(sum(s.amount for s in shares), 380)
 
     def test_washes_plan_charges_full_price_and_refunds_only_covered(self) -> None:
         client_id = self._create_client()
@@ -533,27 +536,29 @@ class DepositTests(unittest.TestCase):
                     PiggyBankTransaction.transaction_type == "deposit_24percent"
                 )
             ).all()
-            # 2 включённые мойки × 24% от 1000 = 2 × 240; 3-я сверх лимита — без проводок.
-            self.assertEqual(sorted(d.amount for d in deposits), [240, 240])
+            # P2-13: все три мойки — платная выручка (2 включённые в абонемент
+            # + 1 сверх лимита), поэтому вклад 24% есть у каждой: 3 × 240.
+            self.assertEqual(sorted(d.amount for d in deposits), [240, 240, 240])
             self.assertTrue(all(d.resource_group == "wash" for d in deposits))
             bookings = db.scalars(select(Booking).where(Booking.client_id == client_id)).all()
             self.assertEqual(len(bookings), 3)
             by_booking: dict[str, int] = {}
             for d in deposits:
                 by_booking[d.booking_id] = by_booking.get(d.booking_id, 0) + d.amount
-            # Возврат только 2 включённых моек, 3-я остаётся оплаченной — и это первые две.
-            self.assertEqual(len(by_booking), 2)
+            # Проводки есть у каждой из трёх моек (сверхлимитная — сразу при записи).
+            self.assertEqual(len(by_booking), 3)
             self.assertTrue(all(v == 240 for v in by_booking.values()))
-            first_two = sorted(bookings, key=lambda b: b.created_at)[:2]
-            self.assertEqual(set(by_booking), {b.id for b in first_two})
+            self.assertEqual(set(by_booking), {b.id for b in bookings})
             shares = db.scalars(select(OwnerProfitShare)).all()
-            # 2 × (1000 − 240) = 1520 владельцам; 3-я мойка — без долей.
-            self.assertEqual(sum(s.amount for s in shares), 1520)
-            uncovered = [b for b in bookings if b.id not in by_booking]
-            self.assertEqual(len(uncovered), 1)
+            # 3 × (1000 − 240) = 2280 владельцам.
+            self.assertEqual(sum(s.amount for s in shares), 2280)
+            # Возврат на баланс — только за 2 включённые мойки (см. balance ниже).
             self.assertEqual(
-                [s for s in shares if s.booking_id == uncovered[0].id],
-                [],
+                sum(
+                    s.amount for s in shares
+                    if s.booking_id == sorted(by_booking)[-1]
+                ) > 0,
+                True,
             )
         self.assertEqual(self._overview(client_id)["balance"], 3000)
 

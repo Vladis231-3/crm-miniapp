@@ -15,7 +15,16 @@ from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 from reportlab.lib import colors
 
-from .finance import money_int, salary_base_for_period
+from .finance import money as _dec_money, money_int, salary_base_for_period
+
+
+def _money2(value: object) -> float:
+    """Деньги до копеек через Decimal (P2-20).
+
+    round() даёт банковское округление и копит float-дрейф при суммировании —
+    в xlsx-отчётах суммы расходились с CRM на копейки.
+    """
+    return float(_dec_money(value))
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
@@ -1990,7 +1999,7 @@ def build_piggy_bank_export(
         for label, b_start, b_end in buckets:
             bucket_txs = [t for d, t in period_dated if b_start <= d <= b_end]
             m = _bucket_metrics(bucket_txs)
-            delta: Any = "" if previous_net is None else round(m["net"] - previous_net, 2)
+            delta: Any = "" if previous_net is None else _money2(m["net"] - previous_net)
             if previous_net in (None, 0):
                 delta_pct = "—"
             else:
@@ -2002,22 +2011,22 @@ def build_piggy_bank_export(
                 b_start.strftime("%d.%m.%Y"),
                 b_end.strftime("%d.%m.%Y"),
                 m["count"],
-                round(m["deposits"], 2),
-                round(m["repayments"], 2),
-                round(m["deposit_returns"], 2),
-                round(m["adjustments"], 2),
-                round(m["income"], 2),
-                round(m["materials_out"], 2),
-                round(m["other_out"], 2),
-                round(m["expense_out"], 2),
-                round(m["outcome"], 2),
-                round(m["net"], 2),
+                _money2(m["deposits"]),
+                _money2(m["repayments"]),
+                _money2(m["deposit_returns"]),
+                _money2(m["adjustments"]),
+                _money2(m["income"]),
+                _money2(m["materials_out"]),
+                _money2(m["other_out"]),
+                _money2(m["expense_out"]),
+                _money2(m["outcome"]),
+                _money2(m["net"]),
                 delta,
                 delta_pct,
-                round(_balance_at(b_end), 2),
-                round(m["wash"], 2),
-                round(m["detailing"], 2),
-                round(m["rest"], 2),
+                _money2(_balance_at(b_end)),
+                _money2(m["wash"]),
+                _money2(m["detailing"]),
+                _money2(m["rest"]),
             ])
             previous_net = m["net"]
         if buckets:
@@ -2027,22 +2036,22 @@ def build_piggy_bank_export(
                 buckets[0][1].strftime("%d.%m.%Y"),
                 buckets[-1][2].strftime("%d.%m.%Y"),
                 grand["count"],
-                round(grand["deposits"], 2),
-                round(grand["repayments"], 2),
-                round(grand["deposit_returns"], 2),
-                round(grand["adjustments"], 2),
-                round(grand["income"], 2),
-                round(grand["materials_out"], 2),
-                round(grand["other_out"], 2),
-                round(grand["expense_out"], 2),
-                round(grand["outcome"], 2),
-                round(grand["net"], 2),
+                _money2(grand["deposits"]),
+                _money2(grand["repayments"]),
+                _money2(grand["deposit_returns"]),
+                _money2(grand["adjustments"]),
+                _money2(grand["income"]),
+                _money2(grand["materials_out"]),
+                _money2(grand["other_out"]),
+                _money2(grand["expense_out"]),
+                _money2(grand["outcome"]),
+                _money2(grand["net"]),
                 "",
                 "—",
-                round(_balance_at(buckets[-1][2]), 2),
-                round(grand["wash"], 2),
-                round(grand["detailing"], 2),
-                round(grand["rest"], 2),
+                _money2(_balance_at(buckets[-1][2])),
+                _money2(grand["wash"]),
+                _money2(grand["detailing"]),
+                _money2(grand["rest"]),
             ])
         return rows
 
@@ -2119,7 +2128,7 @@ def build_piggy_bank_export(
     summary = workbook.active
     summary.title = "Сводка"
     summary.merge_cells("A1:D1")
-    summary["A1"] = company_name
+    summary["A1"] = _neutralize_xlsx_value(company_name)
     summary["A2"] = report_title
     summary["A3"] = f"Период: {period_label}"
     summary["A4"] = f"Сформирован: {generated.strftime('%d.%m.%Y %H:%M')}"
@@ -2131,8 +2140,8 @@ def build_piggy_bank_export(
         if not row:
             row_index += 1
             continue
-        summary.cell(row=row_index, column=1, value=row[0])
-        summary.cell(row=row_index, column=2, value=row[1])
+        summary.cell(row=row_index, column=1, value=_neutralize_xlsx_value(row[0]))
+        summary.cell(row=row_index, column=2, value=_neutralize_xlsx_value(row[1]))
         row_index += 1
     _style_heading(summary, "A1", "A2", "A3", "A4", "A5")
     _style_table(summary, 6, 7, row_index - 1, 2)
@@ -2202,7 +2211,7 @@ def build_piggy_bank_export(
             tx.purpose or "",
             tx.material_name or "",
             float(tx.amount),
-            round(running, 2),
+            _money2(running),
         ])
 
     _append_sheet(
@@ -2476,15 +2485,11 @@ def _build_export_data(
 
             link = next((item for item in booking.worker_links if item.worker_id == worker.id), None)
 
-            if link is not None and link.override_earned is not None:
+            # earned_by_booking — это master_by_worker из сплита: он уже учитывает
+            # ручную сумму и оплату доп-услуг (P2-14).
+            worker_earned_map = earned_by_booking.get(booking.id)
 
-                earned += int(link.override_earned)
-
-            else:
-
-                worker_earned_map = earned_by_booking.get(booking.id)
-
-                earned += worker_earned_map.get(worker.id, 0) if worker_earned_map else 0
+            earned += worker_earned_map.get(worker.id, 0) if worker_earned_map else 0
 
         complaint_state = complaint_status_for_percent(worker.default_percent, worker_penalties)
 
@@ -2940,7 +2945,7 @@ def _render_excel_report(data: OwnerExportData) -> bytes:
 
     summary.merge_cells("A1:D1")
 
-    summary["A1"] = data.company_name
+    summary["A1"] = _neutralize_xlsx_value(data.company_name)
 
     summary["A2"] = f"Владелец: {data.owner_name}"
 
@@ -2954,9 +2959,9 @@ def _render_excel_report(data: OwnerExportData) -> bytes:
 
     for row_index, metric in enumerate(data.metrics, start=7):
 
-        summary.cell(row=row_index, column=1, value=metric.label)
+        summary.cell(row=row_index, column=1, value=_neutralize_xlsx_value(metric.label))
 
-        summary.cell(row=row_index, column=2, value=metric.value)
+        summary.cell(row=row_index, column=2, value=_neutralize_xlsx_value(metric.value))
 
     _style_heading(summary, "A1", "A2", "A3", "A4")
 
@@ -3016,7 +3021,7 @@ def _render_owner_summary_excel_report(data: OwnerSummaryExportData) -> bytes:
 
     summary.merge_cells("A1:D1")
 
-    summary["A1"] = data.company_name
+    summary["A1"] = _neutralize_xlsx_value(data.company_name)
 
     summary["A2"] = data.title
 
@@ -3034,9 +3039,9 @@ def _render_owner_summary_excel_report(data: OwnerSummaryExportData) -> bytes:
 
     for row_index, metric in enumerate(data.metrics, start=9):
 
-        summary.cell(row=row_index, column=1, value=metric.label)
+        summary.cell(row=row_index, column=1, value=_neutralize_xlsx_value(metric.label))
 
-        summary.cell(row=row_index, column=2, value=metric.value)
+        summary.cell(row=row_index, column=2, value=_neutralize_xlsx_value(metric.value))
 
     _style_heading(summary, "A1", "A2", "A3", "A4", "A5", "A6")
 
@@ -3709,7 +3714,7 @@ def build_deposit_export(
         ["Пополнения всего", money(overview.stats.totalTopUps)],
         ["Мойки всего, ₽", money(overview.stats.totalWashDebits)],
         ["Моек всего, шт", overview.stats.totalWashCount or 0],
-        ["Средний чек, ₽", round(float(overview.stats.avgWashPrice or 0), 2)],
+        ["Средний чек, ₽", _money2(float(overview.stats.avgWashPrice or 0))],
         ["Месяцев с начала абонемента", overview.stats.monthsActive or 0],
     ]
 
@@ -3718,7 +3723,8 @@ def build_deposit_export(
     summary.title = "Сводка"
     summary.append(["Показатель", "Значение"])
     for row in summary_rows:
-        summary.append(row)
+        # Сводка депозита идёт мимо _append_sheet — нейтрализуем формулы сами.
+        summary.append([_neutralize_xlsx_value(cell) for cell in row])
     _style_table(summary, 1, 2, summary.max_row, 2)
     _autosize(summary)
 
@@ -3826,7 +3832,7 @@ def build_deposit_export_all(
         ["Клиент", "Тип абонемента", "Абонплата в месяц", "Моек включено, шт", "Баланс"]
     )
     for row in client_rows:
-        summary.append(row)
+        summary.append([_neutralize_xlsx_value(cell) for cell in row])
     _style_table(summary, 1, 2, summary.max_row, 5)
     _autosize(summary)
 

@@ -18,7 +18,7 @@ import sys
 
 import zlib
 
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone, tzinfo
 
 from decimal import Decimal
 
@@ -577,11 +577,15 @@ from .schemas import (
 
 )
 
+from zoneinfo import ZoneInfo
+
 from .security import (
 
     hash_one_time_code,
 
     hash_password,
+
+    secure_equals,
 
     validate_telegram_init_data,
 
@@ -904,7 +908,16 @@ async def lifespan(app: FastAPI):
     _stop_thread("google-sync", google_sync_thread)
 
 
-app = FastAPI(title=settings.app_name, default_response_class=AsciiJSONResponse, lifespan=lifespan)
+# Схема API и /docs раскрывают все роуты и модели — в проде не отдаём их
+# (низкая находка аудита 2026-11-13). В development/staging они остаются.
+app = FastAPI(
+    title=settings.app_name,
+    default_response_class=AsciiJSONResponse,
+    lifespan=lifespan,
+    docs_url=None if settings.is_production else "/docs",
+    redoc_url=None if settings.is_production else "/redoc",
+    openapi_url=None if settings.is_production else "/openapi.json",
+)
 
 app.add_middleware(
 
@@ -1061,7 +1074,9 @@ HTML_NO_CACHE_HEADERS = {
 SECURITY_HEADERS = {
     "Content-Security-Policy": (
         "default-src 'self'; img-src 'self' data: blob: https:; "
-        "style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline' https://telegram.org; "
+        # script-src без 'unsafe-inline': в сборке фронтенда нет inline-скриптов,
+        # а разрешение ослабляло защиту от XSS (низкая находка аудита).
+        "style-src 'self' 'unsafe-inline'; script-src 'self' https://telegram.org; "
         "connect-src 'self' https: wss:; frame-ancestors 'self' https://web.telegram.org"
     ),
     "Referrer-Policy": "strict-origin-when-cross-origin",
@@ -1275,12 +1290,33 @@ def _now() -> datetime:
     return datetime.now(timezone.utc)
 
 
+def _business_tz() -> tzinfo:
+    """Бизнес-таймзона из настроек (P2-20).
+
+    Сервер (Vercel) живёт в UTC, поэтому «сегодня» нужно брать в зоне бизнеса:
+    иначе зарплатные операции и окна отчётов сдвигаются на 3 часа.
+    """
+    name = (settings.app_timezone or "Europe/Moscow").strip()
+    try:
+        return ZoneInfo(name)
+    except Exception:  # noqa: BLE001 — нет tzdata / битая зона: фиксированный MSK
+        return timezone(timedelta(hours=3))
+
+
+def _business_now() -> datetime:
+    return datetime.now(_business_tz())
+
+
+def _local_today() -> date:
+    return _business_now().date()
+
+
 def _local_day_bounds(date_str: str) -> tuple[datetime, datetime]:
     """Границы локального дня (DD.MM.YYYY) в UTC: (00:00, 23:59:59) местного времени.
 
     Периоды ЗП считаются по локальному календарю, а created_at хранится в UTC —
     иначе записи, созданные ночью, попадают не в тот день."""
-    local_tz = datetime.now().astimezone().tzinfo or timezone.utc
+    local_tz = _business_tz()
     day = datetime.strptime(date_str, "%d.%m.%Y")
     start = day.replace(tzinfo=local_tz).astimezone(timezone.utc)
     end = day.replace(hour=23, minute=59, second=59, tzinfo=local_tz).astimezone(timezone.utc)
@@ -3809,7 +3845,7 @@ def _parse_time_to_minutes(time_value: str) -> int | None:
 
 def _today_label() -> str:
 
-    return datetime.now().strftime("%d.%m.%Y")
+    return _business_now().strftime("%d.%m.%Y")
 
 
 
@@ -4739,9 +4775,9 @@ def _worker_payroll_summaries_from_data(
                 time_value=booking.time,
                 fallback=booking.created_at,
             )
+            # P2-14: сплит уже учитывает ручную сумму вместо основной услуги
+            # и оплату доп-услуг сверху. Отдельная ветка override обрезала допы.
             earned = master_by_worker.get(link.worker_id, 0)
-            if link.override_earned is not None:
-                earned = int(link.override_earned)
             booking_items_by_worker[link.worker_id].append(
                 WorkerPayrollBookingPayload(
                     bookingId=booking.id,
@@ -4824,15 +4860,16 @@ def _worker_payroll_summaries_from_data(
             inspections,
             worker.id,
             shift_from or _date(2000, 1, 1),
-            shift_to or _date.today(),
+            shift_to or _local_today(),
         )
         salary_per_shift = getattr(worker, "salary_per_shift", 0) or 0
         shift_pay_total = shift_count * salary_per_shift
-        base_from = shift_from or _date.today().replace(day=1)
-        base_to = shift_to or _date.today()
+        base_from = shift_from or _local_today().replace(day=1)
+        base_to = shift_to or _local_today()
         period_base_salary = money_int(
             salary_base_for_period(
-                worker.salary_base, base_from, base_to, period=period
+                worker.salary_base, base_from, base_to, period=period,
+                today=_local_today(),
             )
         )
         total_accrued = (
@@ -6293,9 +6330,13 @@ def _read_role_preview(db: Session, telegram_id: str) -> dict:
     # P1: бессрочная имперсонация — ворота при компрометации initData создателя.
     # TTL 24ч: просроченное состояние чистим и считаем отсутствующим.
     try:
+        # P2-12: _now() — aware UTC, а fromisoformat может дать naive: вычитание
+        # падало с TypeError, ошибка глоталась и предпросмотр всегда был пуст.
         set_at = datetime.fromisoformat(str(value.get("setAt", "")))
-        if set_at.tzinfo is not None:
-            set_at = set_at.astimezone(timezone.utc).replace(tzinfo=None)
+        if set_at.tzinfo is None:
+            set_at = set_at.replace(tzinfo=timezone.utc)
+        else:
+            set_at = set_at.astimezone(timezone.utc)
         if _now() - set_at > timedelta(hours=24):
             if row is not None:
                 db.delete(row)
@@ -7074,16 +7115,32 @@ def _sync_booking_workers(
 def _sync_booking_materials(
     db: Session, booking: Booking, materials: list[BookingMaterialPayload]
 ) -> None:
+    """Материалы записи от персонала: ссылка на склад и цена — со склада.
+
+    P0-2: присланные клиентом/персоналом unitPrice/name/unit больше не пишутся
+    как есть. Позиция склада обязана существовать, цена берётся из неё —
+    иначе через запись можно было провести материал по любой цене.
+    """
     booking.materials.clear()
     for mat in materials:
+        stock_item = db.get(StockItem, mat.stockItemId) if mat.stockItemId else None
+        if mat.stockItemId and stock_item is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Материал не найден на складе",
+            )
         booking.materials.append(
             BookingMaterial(
                 id=f"bm-{uuid4()}",
-                stock_item_id=mat.stockItemId,
-                name=mat.name,
+                stock_item_id=stock_item.id if stock_item is not None else None,
+                name=stock_item.name if stock_item is not None else mat.name,
                 qty=mat.qty,
-                unit=mat.unit,
-                unit_price=mat.unitPrice,
+                unit=stock_item.unit if stock_item is not None else mat.unit,
+                unit_price=(
+                    float(stock_item.unit_price or 0)
+                    if stock_item is not None
+                    else mat.unitPrice
+                ),
             )
         )
     db.flush()
@@ -7439,7 +7496,7 @@ def _period_to_date_range(period: str) -> tuple[date, date]:
 
     """
 
-    today = date.today()
+    today = _local_today()
 
     if period == "week":
 
@@ -8915,7 +8972,7 @@ def approve_owner_database_reset(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Код истёк — начните заново")
     expected_hash = str(state.get("codeHash"))
     provided_hash = hash_one_time_code(payload.creatorCode.strip(), settings.app_secret)
-    if not hmac_mod.compare_digest(expected_hash, provided_hash):
+    if not secure_equals(expected_hash, provided_hash):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Неверный код")
     if (
         _normalize_database_reset_phrase(payload.confirmationPhrase)
@@ -9969,7 +10026,7 @@ def _owner_export_file(
             _salary_from = _salary_to = None
 
     _shift_from = _salary_from or _date(2000, 1, 1)
-    _shift_to = _salary_to or _date.today()
+    _shift_to = _salary_to or _local_today()
     if _shift_from > _shift_to:
         _shift_from, _shift_to = _shift_to, _shift_from
 
@@ -12224,11 +12281,14 @@ def health() -> GenericMessage:
 
 def _debug_owner_session(
     authorization: str | None = Header(default=None),
-    init_data: str | None = None,
     db: Session = Depends(get_db),
 ) -> dict:
-    """Авторизация владельца для debug-эндпоинтов: заголовок или initData в query."""
-    token = authorization or init_data
+    """Авторизация владельца для debug-эндпоинтов — только заголовок.
+
+    P2-18: initData из query string больше не принимается: токен уходил в
+    access-логи прокси и сервера (и в историю браузера) в открытом виде.
+    """
+    token = authorization
     if not token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing authorization"
@@ -12636,7 +12696,7 @@ def handle_telegram_webhook(
 
     expected_secret = telegram_webhook_secret()
 
-    if not telegram_secret or not hmac_mod.compare_digest(telegram_secret, expected_secret):
+    if not secure_equals(telegram_secret, expected_secret):
 
         raise HTTPException(
 
@@ -13005,7 +13065,9 @@ def create_booking(
 
         booking_duration = service.duration if service is not None else payload.duration
 
-        booking_price = service.price if service is not None else payload.price
+        # P0-2: цена клиентской записи — только из каталога. Неизвестная услуга
+        # (её нет или она неактивна) даёт 0 ₽, цену проставит администратор.
+        booking_price = service.price if service is not None else 0
 
         if is_box_rental:
 
@@ -13294,9 +13356,11 @@ def create_booking(
 
         box=booking_box,
 
-        payment_type=payload.paymentType,
+        # P0-2: денежные поля клиент не задаёт — иначе одним запросом можно
+        # создать запись за 1 ₽ с отметкой «оплачено» и списать склад.
+        payment_type="cash" if session_data["role"] == "client" else payload.paymentType,
 
-        payment_settled=payload.paymentSettled,
+        payment_settled=False if session_data["role"] == "client" else payload.paymentSettled,
 
         source="bot" if session_data["role"] == "client" else "manual",
 
@@ -13348,7 +13412,9 @@ def create_booking(
 
     _sync_booking_workers(db, booking, booking_workers)
 
-    if payload.materials:
+    # P0-1/P0-2: материалы — только от персонала. Клиент не задаёт ни объём,
+    # ни цену материалов (раньше это обнуляло склад и съедало базу сплита).
+    if payload.materials and session_data["role"] != "client":
         _sync_booking_materials(db, booking, payload.materials)
 
     if session_data["role"] in {"admin", "owner"} and payload.notifyWorkers:
@@ -13861,6 +13927,9 @@ def _booking_money_split(
         weighted_workers: list[tuple[str, int]] = []
         explicit_total = 0
         has_service_master_mode = bool(master_pay_type)
+        # P1-10: фикс мастера не может превышать базу — иначе мастер получал
+        # больше чека, а копилка и владельцы — ноль (50000 ₽ на записи в 1000 ₽).
+        fixed_budget = max(0, int(base or 0))
 
         for link in booking.worker_links:
             if link.override_earned is not None:
@@ -13868,7 +13937,8 @@ def _booking_money_split(
                 master_by_worker[link.worker_id] = master_by_worker.get(link.worker_id, 0) + amount
                 explicit_total += amount
             elif link.pay_type == "fixed":
-                amount = int(link.fixed_amount or 0)
+                amount = max(0, min(int(link.fixed_amount or 0), fixed_budget))
+                fixed_budget = max(0, fixed_budget - amount)
                 master_by_worker[link.worker_id] = master_by_worker.get(link.worker_id, 0) + amount
                 explicit_total += amount
             elif has_service_master_mode:
@@ -13895,6 +13965,9 @@ def _booking_money_split(
                     amount = FIXED_MASTER_EARNED
                 else:
                     amount = money_int(base * percent / 100)
+                    # P3: при сумме процентов 100% раздельное округление могло
+                    # дать +1 ₽ сверх базы — срезаем лишнее с текущей доли.
+                    amount = max(0, min(amount, max(0, int(base or 0)) - explicit_total))
                 master_by_worker[link.worker_id] = master_by_worker.get(link.worker_id, 0) + amount
                 explicit_total += amount
 
@@ -13927,6 +14000,24 @@ def _booking_money_split(
                             allocated += amount
                         master_by_worker[worker_id] = master_by_worker.get(worker_id, 0) + amount
                         explicit_total += amount
+                    if len(weighted_workers) == 1 and master_pay_type != "fixed":
+                        # P3: котёл из одного мастера всегда полный, поэтому штраф
+                        # по жалобам не уменьшал выплату. Уменьшаем пропорционально
+                        # снижению процента (30% → 15% = половина).
+                        worker_id, weight = weighted_workers[0]
+                        original = next(
+                            (
+                                link.percent
+                                for link in booking.worker_links
+                                if link.worker_id == worker_id
+                            ),
+                            0,
+                        )
+                        current = master_by_worker.get(worker_id, 0)
+                        if original and 0 <= weight < original and current > 0:
+                            scaled = money_int(current * weight / original)
+                            explicit_total -= current - scaled
+                            master_by_worker[worker_id] = scaled
 
         master_total = explicit_total
         main_master_total = explicit_total
@@ -13982,15 +14073,6 @@ def _booking_money_split(
         dop_pipeline = bool(dop_order) and dop_order != ["materials", "master", "piggy", "owners"]
         if not dop_pipeline:
             asvc_piggy_amount, asvc_rg = _dop_remainder_piggy(asvc_remainder, asvc_svc, rg)
-            if asvc_piggy_amount > 0:
-                asvc_piggy_deposits.append(
-                    {
-                        "name": asvc.name,
-                        "resource_group": asvc_rg,
-                        "amount": asvc_piggy_amount,
-                        "label": _dop_piggy_label(asvc_remainder, asvc_svc, asvc.name),
-                    }
-                )
             # Доля владельцев допа — по его настройкам, как у основной услуги:
             # выключено → 0, процент → % от остатка, иначе весь остаток.
             dop_base_extra = asvc_remainder - asvc_piggy_amount
@@ -14004,7 +14086,24 @@ def _booking_money_split(
             else:
                 dop_extra = dop_base_extra
             # Кламп к остатку: legacy-процент >100% не раздувает итог сверх чека.
-            asvc_owner_extra_total += max(0, min(dop_extra, dop_base_extra))
+            dop_extra = max(0, min(dop_extra, dop_base_extra))
+            asvc_owner_extra_total += dop_extra
+            # P1-8: хвост допа (владельцы выключены или процент <100% при
+            # не-«остаточной» копилке) раньше молча терялся — 304 ₽ из 1500 ₽
+            # не доставались никому. Уводим его в копилку этого же допа,
+            # чтобы цена допа распределялась целиком.
+            dop_tail = dop_base_extra - dop_extra
+            if dop_tail > 0:
+                asvc_piggy_amount += dop_tail
+            if asvc_piggy_amount > 0:
+                asvc_piggy_deposits.append(
+                    {
+                        "name": asvc.name,
+                        "resource_group": asvc_rg,
+                        "amount": asvc_piggy_amount,
+                        "label": _dop_piggy_label(asvc_remainder, asvc_svc, asvc.name),
+                    }
+                )
             continue
         dop_pool = asvc_remainder
         dop_owner_type = asvc_svc.owner_pay_type if asvc_svc else ""
@@ -14035,6 +14134,24 @@ def _booking_money_split(
                 dop_owners = max(0, min(dop_claimed, dop_pool))
                 asvc_owner_extra_total += dop_owners
                 dop_pool = max(0, dop_pool - dop_owners)
+        if dop_pool > 0:
+            # P1-8: остаток персонализированного порядка (владельцы выключены
+            # или их процент <100%) не теряем — доливаем его в копилку допа.
+            merged = False
+            for dep in reversed(asvc_piggy_deposits):
+                if dep.get("name") == asvc.name:
+                    dep["amount"] = int(dep.get("amount") or 0) + dop_pool
+                    merged = True
+                    break
+            if not merged:
+                asvc_piggy_deposits.append(
+                    {
+                        "name": asvc.name,
+                        "resource_group": _dop_piggy_bank(asvc_svc, rg),
+                        "amount": dop_pool,
+                        "label": f"остаток от «{asvc.name}»",
+                    }
+                )
 
     asvc_piggy_total = sum(d["amount"] for d in asvc_piggy_deposits)
 
@@ -14083,14 +14200,14 @@ def _booking_money_split(
                 ).all()
             weights = _owner_payout_weights(db)
             def _distribute_legacy() -> None:
+                # P3: без явных весов делим долю поровну между ВСЕМИ активными
+                # владельцами (раньше третий и следующие молча получали 0).
                 owners_sorted = sorted(owners, key=lambda owner: owner.id)
-                if len(owners_sorted) == 1:
-                    # Один активный владелец получает всю долю
-                    owner_by_owner[owners_sorted[0].id] = owners_total
-                elif len(owners_sorted) >= 2:
-                    first_share = owners_total // 2
-                    owner_by_owner[owners_sorted[0].id] = first_share
-                    owner_by_owner[owners_sorted[1].id] = owners_total - first_share
+                if not owners_sorted:
+                    return
+                share, remainder = divmod(owners_total, len(owners_sorted))
+                for index, owner in enumerate(owners_sorted):
+                    owner_by_owner[owner.id] = share + (1 if index < remainder else 0)
             if weights:
                 # Явные веса: пул + владельцы из весов с весом > 0.
                 # Кривая конфигурация (веса есть, получателей нет) — фолбэк
@@ -14364,6 +14481,24 @@ def _main_piggy_purpose(booking: Booking, split: dict, svc: Service | None) -> s
     return f"24% от заказа {booking.service} ({booking.client_name})"
 
 
+def _lock_row(db: Session, model: Any, pk: Any) -> None:
+    """Пессимистичная блокировка строки для денежных операций (P2-16).
+
+    На Postgres сериализует «проверил — вставил» (вклады, доли, выплаты),
+    чтобы параллельные запросы не создавали дубли. SQLite не поддерживает
+    FOR UPDATE — там это no-op, транзакции и так сериализуются.
+    """
+    try:
+        bind = db.get_bind()
+        # На SQLite/MySQL FOR UPDATE либо не поддерживается, либо блокирует
+        # всю базу — там транзакции и так сериализуются.
+        if bind is None or bind.dialect.name != "postgresql":
+            return
+        db.execute(select(model.id).where(model.id == pk).with_for_update())
+    except Exception:  # noqa: BLE001 — не блокируем денежный путь из-за блокировки
+        return
+
+
 def _process_piggy_bank_for_booking(
     db: Session, booking: Booking, *, force_credit_replay: bool = False
 ) -> None:
@@ -14374,6 +14509,9 @@ def _process_piggy_bank_for_booking(
     settle-month вызывает с force_credit_replay=True и тем самым проигрывает
     обычный сплит: вклады ложатся по piggyPayType/Value/Target услуги.
     """
+
+    # P2-16: сериализуем денежные проводки записи.
+    _lock_row(db, Booking, booking.id)
 
     service = db.get(Service, booking.service_id) if booking.service_id else None
 
@@ -14851,6 +14989,9 @@ def _process_owner_profit_share(
     if booking.payment_type == "credit" and not force_credit_replay:
         return
 
+    # P2-16: не создаём доли дважды при параллельном завершении записи.
+    _lock_row(db, Booking, booking.id)
+
     # Сплит с учётом жалоб — доли владельцев должны сходиться с расчёткой
     # мастеров и деталями сплита (master + piggy + owners = база).
     split = _booking_money_split(
@@ -15081,10 +15222,18 @@ def update_booking(
 
         updates["service"] = service.name
 
-        # ???????????? ???? ?????? ???????????????? ??? ????? serviceId:
-        # ???????????? ? ???? ??????? ?? ???????, ???? ?? ?????? ????.
+        # Длительность и цена подставляются из каталога, только если их не
+        # передали явно. Цена записи включает не-вычитаемые доп-услуги, поэтому
+        # каталожную цену складываем с их суммой: иначе смена услуги «съедала»
+        # стоимость допов (низкая находка аудита).
         updates.setdefault("duration", service.duration)
-        updates.setdefault("price", int(service.price or 0))
+        if "price" not in updates:
+            additional_total = sum(
+                int(asvc.price or 0)
+                for asvc in (booking.additional_services or [])
+                if asvc.price_mode != "subtract"
+            )
+            updates["price"] = int(service.price or 0) + additional_total
 
     else:
 
@@ -15579,6 +15728,16 @@ def update_booking(
 
             _process_owner_profit_share(db, booking)
 
+            if booking_just_completed:
+                # P1-7: оплата до завершения создавала вклады/доли по старой
+                # цене, а завершение их не пересчитывало (цена 2000 ₽,
+                # распределено 1300 ₽). Сверка приводит проводки к сплиту.
+                db.flush()
+                db.refresh(booking)
+                _reconcile_piggy_for_booking(db, booking)
+                if (booking.payment_type or "") != "credit":
+                    _reconcile_owner_shares_for_booking(db, booking)
+
         # Заморозка: дальнейшая смена настроек услуги историю не перепишет.
         _freeze_booking_split(db, booking)
 
@@ -15946,7 +16105,9 @@ def add_booking_additional_service(
 
 ) -> BookingPayload:
 
-    if session_data["role"] not in {"admin", "owner", "accountant"}:
+    # P2-17: доп-услуги — правка записи, бухгалтеру она закрыта (как и
+    # booking.update через authorize_role).
+    if session_data["role"] not in {"admin", "owner"}:
 
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
 
@@ -16088,7 +16249,7 @@ def remove_booking_additional_service(
 
 ) -> BookingPayload:
 
-    if session_data["role"] not in {"admin", "owner", "accountant"}:
+    if session_data["role"] not in {"admin", "owner"}:
 
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
 
@@ -16155,7 +16316,7 @@ def update_booking_additional_service(
     session_data: dict = Depends(_require_session),
     db: Session = Depends(get_db),
 ) -> BookingPayload:
-    if session_data["role"] not in {"admin", "owner", "accountant"}:
+    if session_data["role"] not in {"admin", "owner"}:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
 
     # Validate: if explicitly setting outsource=false with empty workers, reject
@@ -18366,7 +18527,7 @@ def get_piggy_bank(
 
         sd = parsed_from or date(2000, 1, 1)
 
-        ed = parsed_to or date.today()
+        ed = parsed_to or _local_today()
 
         shift_count, shift_dates = _compute_shift_attendance(inspections, w.id, sd, ed)
 
@@ -18736,7 +18897,7 @@ def get_piggy_bank(
     _combined_wb: float | None = None
     try:
         if not booking_id:
-            _today = date.today()
+            _today = _local_today()
             _cur_sat = _today - timedelta(days=(_today.weekday() - 5) % 7)
             _cur_week_start_str = _cur_sat.strftime("%d.%m.%Y")
             _cur_pred = _before(_cur_sat)
@@ -19530,7 +19691,7 @@ def piggy_bank_repay(
     if rg not in {"wash", "detailing", "general"}:
         rg = max(_group_totals, key=lambda k: _group_totals[k]) if _group_totals else "wash"
 
-    op_date = (payload.date or "").strip() or date.today().strftime("%d.%m.%Y")
+    op_date = (payload.date or "").strip() or _local_today().strftime("%d.%m.%Y")
     note = (payload.note or "").strip() or "Погашение долга по копилке"
 
     expense = Expense(
@@ -19714,7 +19875,7 @@ def piggy_bank_adjust(
                 bookingStatus=None,
             )
 
-    date = payload.date or datetime.now().strftime("%d.%m.%Y")
+    date = payload.date or _business_now().strftime("%d.%m.%Y")
 
 
 
@@ -19950,12 +20111,25 @@ def _deposit_txn_payload(db: Session, txn: DepositTransaction) -> DepositTransac
 
 
 def _deposit_month_label() -> str:
-    return datetime.now().strftime("%m.%Y")
+    return _business_now().strftime("%m.%Y")
 def _deposit_month_of(date_str: str) -> str:
     parts = (date_str or "").split(".")
     if len(parts) == 3:
         return f"{parts[1]}.{parts[2]}"
     return ""
+
+
+def _deposit_month_key(month: str) -> tuple[int, int]:
+    """Сортируемый ключ месяца «MM.YYYY» → (год, месяц).
+
+    P1-9: месяцы сравнивались и сортировались как строки, поэтому с 01.2027
+    порядок и остатки на начало месяца считались неверно («12.2026» < «01.2027»
+    строкой ложно).
+    """
+    match = re.fullmatch(r"(\d{2})\.(\d{4})", (month or "").strip())
+    if not match:
+        return (0, 0)
+    return (int(match.group(2)), int(match.group(1)))
 
 
 def _deposit_month_wash_total_for(db: Session, client_id: str, month: str) -> float:
@@ -20048,7 +20222,17 @@ def _deposit_month_bookings_for(db: Session, client_id: str, month: str) -> list
         )
     ).all()
     month_rows = [b for b in rows if _deposit_month_of(b.date) == month]
-    month_rows.sort(key=lambda b: (b.date or "", b.completed_at or b.created_at or _now()))
+
+    def _sort_key(booking: Booking) -> tuple:
+        # P2-13: время завершения бывает aware (только что созданная мойка) и
+        # naive (прочитано из SQLite) — приводим к naive UTC, иначе сравнение
+        # двух записей падает с TypeError.
+        stamp = booking.completed_at or booking.created_at or _now()
+        if isinstance(stamp, datetime) and stamp.tzinfo is not None:
+            stamp = stamp.astimezone(timezone.utc).replace(tzinfo=None)
+        return (booking.date or "", stamp)
+
+    month_rows.sort(key=_sort_key)
     return month_rows
 
 
@@ -20093,12 +20277,13 @@ def _deposit_month_rows(
     }
     months.update(row.month for row in closed_months)
     rows: list[DepositMonthBreakdown] = []
-    for month in sorted(months, reverse=True):
+    for month in sorted(months, key=_deposit_month_key, reverse=True):
         month_txns = [t for t in transactions if _deposit_month_of(t.date) == month]
+        month_key = _deposit_month_key(month)
         balance_before = sum(
             t.amount
             for t in transactions
-            if _deposit_month_of(t.date) and _deposit_month_of(t.date) < month
+            if _deposit_month_of(t.date) and _deposit_month_key(_deposit_month_of(t.date)) < month_key
         )
         closed_row = next((r for r in closed_months if r.month == month), None)
         rows.append(
@@ -20306,7 +20491,7 @@ def deposit_topup(
         raise HTTPException(status_code=404, detail="Клиент не найден")
     if not client.deposit_active:
         raise HTTPException(status_code=400, detail="Клиент не является абонентом депозита")
-    date = payload.date or datetime.now().strftime("%d.%m.%Y")
+    date = payload.date or _business_now().strftime("%d.%m.%Y")
     op_key = (payload.clientRequestId or "").strip() or None
     if op_key:
         # T5: повтор POST с тем же ключом — replay существующей операции.
@@ -20350,7 +20535,7 @@ def deposit_adjust(
         raise HTTPException(status_code=404, detail="Клиент не найден")
     if not client.deposit_active:
         raise HTTPException(status_code=400, detail="Клиент не является абонентом депозита")
-    date = payload.date or datetime.now().strftime("%d.%m.%Y")
+    date = payload.date or _business_now().strftime("%d.%m.%Y")
     op_key = (payload.clientRequestId or "").strip() or None
     if op_key:
         # T5: повтор POST с тем же ключом — replay (баланс уже учтён).
@@ -20453,18 +20638,38 @@ def deposit_record_wash(
     if not client.deposit_active:
         raise HTTPException(status_code=400, detail="Клиент не является абонентом депозита")
 
+    # P2-16: сериализуем списание с депозита и расчёт лимита моек.
+    _lock_row(db, Client, client_id)
+
     service_name = payload.service.strip() or "Мойка"
     service_id = payload.serviceId or ""
-    booking_date = payload.date or datetime.now().strftime("%d.%m.%Y")
-    booking_time = payload.time or datetime.now().strftime("%H:%M")
+    booking_date = payload.date or _business_now().strftime("%d.%m.%Y")
+    booking_time = payload.time or _business_now().strftime("%H:%M")
+
+    month = _deposit_month_of(booking_date)
+    closed_month = db.scalar(
+        select(DepositMonth).where(
+            DepositMonth.client_id == client_id,
+            DepositMonth.month == month,
+        )
+    )
+    if closed_month is not None:
+        # P2-13: такая мойка списывалась с депозита, но в закрытый месяц уже
+        # не попадала — ни в копилку, ни в доли владельцев.
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Месяц {month} закрыт: мойка не попадёт в копилку и доли. Укажите другую дату.",
+        )
 
     plan = _deposit_plan_key(client.deposit_plan or "")
     tariff = float(client.deposit_wash_price or 0)
-    charge = float(payload.price)
+    # P2-13: int(charge) отбрасывал копейки, а с депозита списывалась полная
+    # сумма — выручка и списание расходились. Округляем один раз и одинаково.
+    charge = float(money_int(float(payload.price)))
     charge_note = ""
     if plan == "per_wash" and tariff > 0:
-        charge = tariff
-        charge_note = f" (тариф {int(tariff)} ₽ за мойку)"
+        charge = float(money_int(tariff))
+        charge_note = f" (тариф {int(charge)} ₽ за мойку)"
 
     booking = Booking(
         id=f"b-{uuid4()}",
@@ -20476,7 +20681,7 @@ def deposit_record_wash(
         date=booking_date,
         time=booking_time,
         duration=max(1, int(payload.duration or 30)),
-        price=int(charge),
+        price=money_int(charge),
         status="completed",
         box="",
         payment_type="credit",
@@ -20514,8 +20719,29 @@ def deposit_record_wash(
     )
     txn.created_by_id = session_data["actorId"]
 
-    # Депозитная мойка сразу завершена: замораживаем авто-сплит (проводок нет,
-    # доиграет settle-month; история не поплывёт при смене настроек).
+    # P2-13: мойка вне абонемента — тариф per_wash или сверх лимита плана
+    # washes. Это платная выручка, закрытие месяца её не возвращает, поэтому
+    # сплит (копилка + доли владельцев) проводим сразу: раньше такие мойки
+    # списывались с депозита и не попадали никуда.
+    covered = True
+    if plan == "per_wash":
+        covered = False
+    elif plan == "washes":
+        limit = _deposit_wash_limit(db, client, month)
+        month_rows = _deposit_month_bookings_for(db, client_id, month)
+        position = next(
+            (index for index, row in enumerate(month_rows) if row.id == booking.id),
+            None,
+        )
+        covered = position is not None and limit > 0 and position < limit
+    if not covered:
+        db.flush()
+        _process_piggy_bank_for_booking(db, booking, force_credit_replay=True)
+        _process_owner_profit_share(db, booking, force_credit_replay=True)
+
+    # Депозитная мойка сразу завершена: замораживаем авто-сплит (для
+    # включённых в абонемент проводок нет, доиграет settle-month; история
+    # не поплывёт при смене настроек).
     _freeze_booking_split(db, booking)
 
     db.commit()
@@ -20534,7 +20760,17 @@ def deposit_settle_month(
     if client is None:
         raise HTTPException(status_code=404, detail="Клиент не найден")
 
+    # P2-16: параллельное закрытие месяца и списание моек сериализуем.
+    _lock_row(db, Client, client_id)
+
     month = payload.month
+    if _deposit_month_key(month) > _deposit_month_key(_deposit_month_label()):
+        # P2-13: будущий месяц закрывать бессмысленно — моек в нём ещё нет,
+        # а месяц становится «закрытым» и блокирует последующие записи.
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Нельзя закрыть будущий месяц",
+        )
     existing = db.scalar(
         select(DepositMonth).where(
             DepositMonth.client_id == client_id,
@@ -20587,7 +20823,10 @@ def deposit_settle_month(
         eligible = month_rows[: max(0, limit)] if limit > 0 else []
     else:
         eligible = month_rows
-    for _booking in eligible:
+    # P2-13: сверхлимитные мойки плана washes — платная выручка (тариф «сверх
+    # лимита»), поэтому их сплит тоже проводим, но в возврат они не попадают.
+    replay_rows = month_rows if plan_key == "washes" else eligible
+    for _booking in replay_rows:
         _process_piggy_bank_for_booking(db, _booking, force_credit_replay=True)
         _process_owner_profit_share(db, _booking, force_credit_replay=True)
         _freeze_booking_split(db, _booking)
@@ -20603,7 +20842,7 @@ def deposit_settle_month(
             "month_return",
             float(refund),
             f"Закрытие {month}: возврат моек (копилка и владельцы — по настройкам услуг)",
-            date=datetime.now().strftime("%d.%m.%Y"),
+            date=_business_now().strftime("%d.%m.%Y"),
         )
 
     try:
@@ -20654,7 +20893,7 @@ def deposit_export_excel(
 
 def _week_bounds() -> tuple[date, date]:
 
-    today = date.today()
+    today = _local_today()
 
     saturday = today - timedelta(days=(today.weekday() - 5) % 7)
 
@@ -21395,7 +21634,7 @@ def search_worker_cars(
     elif date_filter:
         query = query.where(Booking.date == date_filter)
     else:
-        query = query.where(Booking.date == datetime.now().strftime("%d.%m.%Y"))
+        query = query.where(Booking.date == _business_now().strftime("%d.%m.%Y"))
 
     if normalized:
         bookings = db.scalars(
@@ -22121,7 +22360,7 @@ def preview_service_split(
         client_phone="",
         service=svc.name,
         service_id=svc.id,
-        date=datetime.now().strftime("%d.%m.%Y"),
+        date=_business_now().strftime("%d.%m.%Y"),
         time="12:00",
         duration=max(1, int(item.duration or 60)),
         price=sample_price,
@@ -23781,6 +24020,25 @@ def create_payroll_entry(
 
     complaints_by_worker = _complaints_by_worker(_load_penalties(db))
 
+    # P2-14: без clientRequestId повторная отправка формы создавала вторую
+    # выплату. Это выплата (деньги наружу), поэтому сторож только для неё.
+    if payload.kind == "payout" and not payload.clientRequestId:
+        duplicate = db.scalar(
+            select(PayrollEntry).where(
+                PayrollEntry.worker_id == worker.id,
+                PayrollEntry.kind == "payout",
+                PayrollEntry.amount == amount,
+                PayrollEntry.actor_id == session_data["actorId"],
+                PayrollEntry.deleted_at.is_(None),
+                PayrollEntry.created_at >= _now() - timedelta(seconds=60),
+            )
+        )
+        if duplicate is not None:
+            payroll_summaries = _worker_payroll_summaries(
+                db, [worker], complaints_by_worker
+            )
+            return _worker_payload_with_payroll(worker, payroll_summaries)
+
     payroll_summaries = _worker_payroll_summaries(db, [worker], complaints_by_worker)
 
     worker_summary = payroll_summaries.get(worker.id)
@@ -23812,6 +24070,7 @@ def create_payroll_entry(
     # диапазона, иначе операция выпадет из баланса выбранного периода.
     # Операция без периода (или период "all") учитывается по дате создания.
     entry_date = None
+    cf = ct = None
     if payload.period in ("day", "week", "month", "custom"):
         if payload.period == "custom":
             if not payload.dateFrom or not payload.dateTo:
@@ -23821,13 +24080,58 @@ def create_payroll_entry(
                 )
             cf = _parse_booking_date_param(payload.dateFrom)
             ct = _parse_booking_date_param(payload.dateTo)
-        else:
-            cf = ct = None
         if payload.period == "custom":
             _df, _dt = _salary_date_range(payload.period, custom_from=cf, custom_to=ct)
             entry_date = _dt
         else:
-            entry_date = date.today().strftime("%d.%m.%Y")
+            entry_date = _local_today().strftime("%d.%m.%Y")
+
+    # P2-14: выплата ложится в тот сегмент, где мастер реально заработал (как
+    # pay-salary), а не всегда в «мойку». Премии/авансы/удержания/корректировки
+    # остаются в «мойке» — это расход компании, не привязанный к сегменту
+    # (инвариант all = wash + detailing в карточке ЗП).
+    if payload.segment == "detailing":
+        payroll_rg = "detailing"
+    elif payload.segment == "wash":
+        payroll_rg = "wash"
+    elif payload.kind == "payout":
+        seg_from, seg_to = _salary_date_range(
+            payload.period or "all", custom_from=cf, custom_to=ct
+        )
+        seg_earned = _worker_segment_earnings(
+            db,
+            worker.id,
+            date_from=seg_from,
+            date_to=seg_to,
+            complaints_by_worker=complaints_by_worker,
+        )
+        wash_earned = int(seg_earned.get("wash") or 0)
+        detailing_earned = int(seg_earned.get("detailing") or 0)
+        # Заработок в обоих сегментах — одна выплата не может лечь в две
+        # копилки; берём сегмент с большей долей (ничья → мойка), чтобы деньги
+        # не уезжали в чужой сегмент молча.
+        payroll_rg = "detailing" if detailing_earned > wash_earned else "wash"
+    else:
+        payroll_rg = "wash"
+
+    # P2-17: админ и бухгалтер не проводят выплаты/премии/авансы сверх
+    # остатка мастера — иначе деньги уходят «из воздуха».
+    # Премия не ограничивается остатком: это начисление мастеру (баланс растёт),
+    # ограничение — только для реального вывода денег.
+    if session_data["role"] in {"admin", "accountant"} and payload.kind in {
+        "payout",
+        "advance",
+    }:
+        available = int(worker_summary.balance) if worker_summary is not None else 0
+        if amount > available:
+            kind_label = {"payout": "выплату", "bonus": "премию", "advance": "аванс"}[payload.kind]
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(
+                    f"Нельзя провести {kind_label} больше остатка мастера. "
+                    f"Доступно: {max(0, available)} ₽"
+                ),
+            )
 
     entry = PayrollEntry(
 
@@ -23856,7 +24160,7 @@ def create_payroll_entry(
     db.add(entry)
 
     # Budget integration: bonus/advance → expense, deduction → income, adjustment by sign
-    op_date = entry_date or date.today().strftime("%d.%m.%Y")
+    op_date = entry_date or _local_today().strftime("%d.%m.%Y")
     created_expense_id = None
     created_income_id = None
     if payload.kind in ("bonus", "advance"):
@@ -23867,7 +24171,7 @@ def create_payroll_entry(
             category="Зарплата",
             date=op_date,
             note=payload.note.strip() or ("Премия" if payload.kind == "bonus" else "Аванс"),
-            resource_group="wash",
+            resource_group=payroll_rg,
             created_at=_now(),
         )
         db.add(expense)
@@ -23882,7 +24186,7 @@ def create_payroll_entry(
             category="Зарплата",
             date=op_date,
             note=payload.note.strip() or "Выплата",
-            resource_group="wash",
+            resource_group=payroll_rg,
             created_at=_now(),
         )
         db.add(expense)
@@ -23895,7 +24199,7 @@ def create_payroll_entry(
             note=payload.note.strip() or ("Штраф" if payload.kind == "fine" else "Списание"),
             created_by_id=session_data["actorId"],
             date=op_date,
-            resource_group="wash",
+            resource_group=payroll_rg,
             created_at=_now(),
         )
         db.add(income)
@@ -23909,7 +24213,7 @@ def create_payroll_entry(
                 category="Зарплата",
                 date=op_date,
                 note=payload.note.strip() or "Корректировка",
-                resource_group="wash",
+                resource_group=payroll_rg,
                 created_at=_now(),
             )
             db.add(expense)
@@ -23922,7 +24226,7 @@ def create_payroll_entry(
                 note=payload.note.strip() or "Корректировка",
                 created_by_id=session_data["actorId"],
                 date=op_date,
-                resource_group="wash",
+                resource_group=payroll_rg,
                 created_at=_now(),
             )
             db.add(income)
@@ -24310,7 +24614,9 @@ def _booking_money_split_detail(db: Session, booking: Booking) -> BookingMoneySp
     master_by_worker_auto = split["master_by_worker"]
     for link in booking.worker_links:
         earned_auto = master_by_worker_auto.get(link.worker_id, 0)
-        earned = int(link.override_earned) if link.override_earned is not None else earned_auto
+        # master_by_worker уже учитывает override (основная услуга заменена,
+        # доп-услуги сверху) — вторая подмена обрезала бы допы (P2-14).
+        earned = earned_auto
         master_effective_total += earned
         workers.append(
             BookingMoneySplitWorkerItem(
@@ -24395,14 +24701,11 @@ def _booking_money_split_detail(db: Session, booking: Booking) -> BookingMoneySp
     split_base = int(split.get("split_base", max(0, split["net"] - subtract_total)))
 
     link_worker_ids = {link.worker_id for link in booking.worker_links}
-    # При override earned заменяет только основу мастера — его допы добавляются
-    # отдельно (как в сплите), иначе детализация занижает итог на доп.
-    override_worker_ids = {
-        link.worker_id for link in booking.worker_links if link.override_earned is not None
-    }
+    # master_by_worker из сплита уже включает оплату доп-услуг мастерам основы,
+    # поэтому повторно добавляем только тех, кто занят ИСКЛЮЧИТЕЛЬНО на допах
+    # (иначе override + доп считались дважды — тест test_detail_override_keeps_own_dop).
     master_effective_total += sum(
-        w.earned for w in asvc_workers
-        if w.workerId not in link_worker_ids or w.workerId in override_worker_ids
+        w.earned for w in asvc_workers if w.workerId not in link_worker_ids
     )
 
     return BookingMoneySplitDetail(
@@ -25238,11 +25541,11 @@ def get_owner_money_flow(
                     workerName=w.workerName,
                     earned=int(w.earned or 0),
                 )
+                # detail.workers уже включает оплату доп-услуг мастерам основы
+                # (сплит складывает override + допы), поэтому добавляем только
+                # тех, кто занят исключительно на допах — иначе задвоение.
                 for w in detail.asvcWorkers
-                # override заменяет только основу: доп override-мастера
-                # добавляется отдельно (как в masterTotal детализации)
                 if w.workerId not in {x.workerId for x in detail.workers}
-                or w.workerId in {x.workerId for x in detail.workers if x.overrideEarned is not None}
             ],
             owners=[
                 MoneyFlowDistributionOwnerItem(
@@ -25706,7 +26009,19 @@ def update_owner_booking_money_split(
         # Ручной перерасчёт: единственная строка списания берёт всю целевую сумму.
         # При нескольких строках не переписываем — распределить сумму однозначно нельзя.
         write_offs[0].total_cost = target_materials
-    for expense in db.scalars(select(Expense).where(Expense.deleted_at.is_(None), Expense.booking_id == booking.id)).all():
+    # P2-15: раньше сумма материалов записывалась во ВСЕ расходы записи, и,
+    # например, уборка/аутсорс получали ту же сумму. Правим только расход на
+    # материалы; legacy-запись без категории берём, лишь если она одна.
+    booking_expenses = db.scalars(
+        select(Expense).where(Expense.deleted_at.is_(None), Expense.booking_id == booking.id)
+    ).all()
+    material_expenses = [
+        expense for expense in booking_expenses
+        if (expense.category or "") == "Расходные материалы"
+    ]
+    if not material_expenses and len(booking_expenses) == 1:
+        material_expenses = list(booking_expenses)
+    for expense in material_expenses:
         expense.amount = target_materials
 
     deposit_txs = db.scalars(
@@ -25721,6 +26036,28 @@ def update_owner_booking_money_split(
     split = _booking_money_split(
         db, booking, _complaints_by_worker(_load_penalties(db))
     )
+    # P2-15: ручная правка не может распределить больше чека. Проверяем сумму
+    # мастера + копилка + владельцы до любых мутаций проводок.
+    check_total = max(0, int(booking.price or 0))
+    masters_now = max(0, int(split.get("master_total") or 0))
+    piggy_now = (
+        max(0, int(payload.piggyDeposit))
+        if payload.piggyDeposit is not None
+        else max(0, int(split.get("piggy_deposit") or 0))
+    )
+    owners_now = (
+        sum(max(0, money_int(owner_update.amount)) for owner_update in payload.owners)
+        if payload.owners
+        else max(0, int(split.get("owners_total") or 0))
+    )
+    if masters_now + piggy_now + owners_now > check_total:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                f"Распределение превышает чек: мастера {masters_now} ₽ + "
+                f"копилка {piggy_now} ₽ + владельцы {owners_now} ₽ > {check_total} ₽"
+            ),
+        )
     # Депозиты доп услуг (остаток от вычитаемых доп услуг) — авто-вклад в свою
     # копилку, при ручной правке копилки их не трогаем
     asvc_purpose_prefix = ASVC_PIGGY_PURPOSE_PREFIX
@@ -25772,7 +26109,8 @@ def update_owner_booking_money_split(
                 continue
             seen_owner_ids.add(owner_update.ownerId)
             share = existing_shares.get(owner_update.ownerId)
-            amount = round(owner_update.amount)
+            # P2-15: round() — банковское округление; деньги считаем half-up.
+            amount = money_int(owner_update.amount)
             if share is not None and share.status == "paid":
                 raise HTTPException(status_code=400, detail="Нельзя изменить уже выплаченную долю владельца")
             if share is not None:
@@ -26020,7 +26358,7 @@ def _salary_date_range(period: str, ref: date | None = None, custom_from: str | 
 
     """Возвращает (date_from, date_to) в формате DD.MM.YYYY."""
 
-    ref = ref or date.today()
+    ref = ref or _local_today()
 
     if period == "day":
 
@@ -26147,11 +26485,8 @@ def _worker_segment_earnings(
     earned: dict[str, int] = {"wash": 0, "detailing": 0}
     for b in completed:
         split = _booking_money_split(db, b, complaints_by_worker)
-        link = next((item for item in b.worker_links if item.worker_id == worker_id), None)
-        if link is not None and link.override_earned is not None:
-            amount = int(link.override_earned)
-        else:
-            amount = int(split["master_by_worker"].get(worker_id, 0))
+        # Сплит уже содержит и override, и оплату доп-услуг (P2-14).
+        amount = int(split["master_by_worker"].get(worker_id, 0))
         if amount <= 0:
             continue
         rg = _resource_group_for_service(db, b.service_id)
@@ -26308,16 +26643,8 @@ def _worker_period_balance(
         if segment != "all" and rg != segment:
             continue
         split = _booking_money_split(db, b, complaints_by_worker)
-        worker_link = next(
-            (link for link in b.worker_links if link.worker_id == worker.id), None
-        )
-        # Ровно как в salary-detail: override заменяет всю сумму мастера
-        # (основная услуга + доп. услуги), иначе берём долю из сплита — она
-        # включает и мастеров, которые работают только на доп. услугах.
-        if worker_link is not None and worker_link.override_earned is not None:
-            total_earned += int(worker_link.override_earned)
-        else:
-            total_earned += split["master_by_worker"].get(worker.id, 0)
+        # Ровно как в salary-detail: сплит включает и ручную сумму, и доп-услуги.
+        total_earned += split["master_by_worker"].get(worker.id, 0)
 
     entries = db.scalars(
         select(PayrollEntry).where(
@@ -26346,7 +26673,9 @@ def _worker_period_balance(
     # Оклад пропорционален периоду — как на странице ЗП
     # (salary_base_for_period), а не полный месячный.
     period_base_salary = money_int(
-        salary_base_for_period(worker.salary_base, d_from, d_to, period=period)
+        salary_base_for_period(
+            worker.salary_base, d_from, d_to, period=period, today=_local_today()
+        )
     )
     if segment == "detailing":
         period_base_salary = 0
@@ -26575,13 +26904,9 @@ def owner_worker_salary_detail(
 
         split = _booking_money_split(db, b, complaints_by_worker)
 
-        if worker_link and worker_link.override_earned is not None:
+        # Сплит уже включает ручную сумму и оплату доп-услуг (P2-14).
 
-            earned = int(worker_link.override_earned)
-
-        else:
-
-            earned = split["master_by_worker"].get(worker_id, 0)
+        earned = split["master_by_worker"].get(worker_id, 0)
 
         total_earned += earned
 
@@ -26749,7 +27074,7 @@ def owner_worker_salary_detail(
 
         shift_count, shift_dates = _compute_shift_attendance(
 
-            inspections, worker.id, date(2000, 1, 1), date.today()
+            inspections, worker.id, date(2000, 1, 1), _local_today()
 
         )
 
@@ -26782,7 +27107,8 @@ def owner_worker_salary_detail(
     shift_pay_total = shift_count * salary_per_shift
     period_base_salary = money_int(
         salary_base_for_period(
-            worker.salary_base, range_from, range_to, period=period
+            worker.salary_base, range_from, range_to, period=period,
+            today=_local_today(),
         )
     )
     if segment == "detailing":
@@ -27025,13 +27351,9 @@ def worker_my_salary_detail(
 
         split = _booking_money_split(db, b, complaints_by_worker)
 
-        if worker_link and worker_link.override_earned is not None:
+        # Сплит уже включает ручную сумму и оплату доп-услуг (P2-14).
 
-            earned = int(worker_link.override_earned)
-
-        else:
-
-            earned = split["master_by_worker"].get(worker_id, 0)
+        earned = split["master_by_worker"].get(worker_id, 0)
 
         total_earned += earned
 
@@ -27169,7 +27491,7 @@ def worker_my_salary_detail(
 
         shift_count, shift_dates = _compute_shift_attendance(
 
-            inspections, worker.id, date(2000, 1, 1), date.today()
+            inspections, worker.id, date(2000, 1, 1), _local_today()
 
         )
 
@@ -27202,7 +27524,8 @@ def worker_my_salary_detail(
     shift_pay_total = shift_count * salary_per_shift
     period_base_salary = money_int(
         salary_base_for_period(
-            worker.salary_base, range_from, range_to, period=period
+            worker.salary_base, range_from, range_to, period=period,
+            today=_local_today(),
         )
     )
     if segment == "detailing":
@@ -27385,7 +27708,21 @@ def owner_worker_pay_salary(
 
     amount = payload.amount
 
-
+    # P2-14: без clientRequestId двойной клик создавал вторую выплату.
+    # Сторож: та же выплата тем же сотрудником в течение минуты — replay.
+    if not payload.clientRequestId:
+        duplicate = db.scalar(
+            select(PayrollEntry).where(
+                PayrollEntry.worker_id == worker.id,
+                PayrollEntry.kind == "payout",
+                PayrollEntry.amount == amount,
+                PayrollEntry.actor_id == session_data["actorId"],
+                PayrollEntry.deleted_at.is_(None),
+                PayrollEntry.created_at >= _now() - timedelta(seconds=60),
+            )
+        )
+        if duplicate is not None:
+            return _replay_response(duplicate)
 
     # Дата, которой падает выплата. Периоды day/week/month вычисляются от
     # сегодняшней даты, и проведение всегда происходит внутри периода —
@@ -27410,7 +27747,7 @@ def owner_worker_pay_salary(
             _df, _dt = _salary_date_range(payload.period, custom_from=cf, custom_to=ct)
             payout_date = _dt
         else:
-            payout_date = date.today().strftime("%d.%m.%Y")
+            payout_date = _local_today().strftime("%d.%m.%Y")
 
     # 1. Create PayrollEntry
 
@@ -27444,7 +27781,7 @@ def owner_worker_pay_salary(
 
     # 2. Create Expense (auto-deduct from budget)
 
-    op_date = payout_date or date.today().strftime("%d.%m.%Y")
+    op_date = payout_date or _local_today().strftime("%d.%m.%Y")
 
     expense = Expense(
 
@@ -27571,7 +27908,8 @@ def owner_salary_detail(
 
 ) -> OwnerSalaryDetailResponse:
 
-    _ensure_staff_role(session_data, {"owner", "admin"})
+    # P2-17: детализация доходов владельцев — только владельцу.
+    _ensure_staff_role(session_data, {"owner"})
 
     owners = db.scalars(
 
@@ -27860,7 +28198,8 @@ def owner_pay_salary(
 
 ) -> PayOwnerSalaryResponse:
 
-    _ensure_staff_role(session_data, {"owner", "admin"})
+    # P2-17: выплаты долей владельцев проводит только владелец.
+    _ensure_staff_role(session_data, {"owner"})
 
 
 
@@ -27869,6 +28208,9 @@ def owner_pay_salary(
     if owner is None or owner.role != "owner":
 
         raise HTTPException(status_code=404, detail="Владелец не найден")
+
+    # P2-16: параллельные выплаты одному владельцу не должны переплатить.
+    _lock_row(db, StaffUser, owner.id)
 
     # Доли отменённых/удалённых записей в выплату не идут (как в owner_salary_detail).
     live_share_booking_ids = _live_owner_share_booking_ids(db)
@@ -28000,7 +28342,7 @@ def owner_pay_salary(
     # Create PayrollEntry
     # entry_date = локальный день выплаты: выплата видна в движении денег
     # за день проведения (как у мастеров), а не по UTC-дате created_at.
-    today_str = date.today().strftime("%d.%m.%Y")
+    today_str = _local_today().strftime("%d.%m.%Y")
 
     entry = PayrollEntry(
 

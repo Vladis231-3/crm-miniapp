@@ -143,6 +143,9 @@ _TOKEN_KV_RE = re.compile(
     r"((?:bot[_-]?token|app[_-]?secret|telegram_init_data|initdata|password|passwd)\s*[:=]\s*)([^\s,;]+)",
     re.IGNORECASE,
 )
+# Строка подключения к БД в тексте исключения (SQLAlchemy печатает URL целиком,
+# включая пароль) — в Telegram-чат не должна попадать.
+_DB_CREDENTIALS_RE = re.compile(r"(?i)\b(\w+\+?\w*://)[^\s/@\"']+@")
 
 
 def _redact_pii(text: str) -> str:
@@ -154,6 +157,7 @@ def _redact_pii(text: str) -> str:
     if not text:
         return text
     redacted = _PHONE_RE.sub("[телефон скрыт]", text)
+    redacted = _DB_CREDENTIALS_RE.sub(r"\1[скрыто]@", redacted)
     redacted = _TOKEN_KV_RE.sub(r"\1[скрыто]", redacted)
     redacted = _BEARER_RE.sub(r"\1[скрыто]", redacted)
 

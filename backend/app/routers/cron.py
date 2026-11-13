@@ -6,8 +6,6 @@
 
 from __future__ import annotations
 
-import hmac as hmac_mod
-
 from fastapi import APIRouter, Depends, Header, HTTPException, status
 from sqlalchemy.orm import Session
 
@@ -15,6 +13,7 @@ from ..database import get_db
 from ..google_calendar import pull_calendar_changes
 from ..outbox import process_outbox_batch
 from ..schemas import OwnerReminderDispatchPayload
+from ..security import secure_equals
 from ..main import (
     _all_owner_telegram_recipients,
     _dispatch_booking_reminders,
@@ -43,7 +42,7 @@ def run_google_calendar_sync_cron(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="CRON_SECRET is not configured (set it in the hosting dashboard)",
         )
-    if not authorization or not hmac_mod.compare_digest(authorization, f"Bearer {settings.cron_secret}"):
+    if not secure_equals(authorization, f"Bearer {settings.cron_secret}"):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid cron secret",
@@ -67,7 +66,7 @@ def run_outbox_cron(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="CRON_SECRET is not configured (set it in the hosting dashboard)",
         )
-    if not authorization or not hmac_mod.compare_digest(authorization, f"Bearer {settings.cron_secret}"):
+    if not secure_equals(authorization, f"Bearer {settings.cron_secret}"):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid cron secret",
@@ -90,7 +89,7 @@ def run_reminders_cron(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="CRON_SECRET is not configured (set it in the hosting dashboard)",
         )
-    if not authorization or not hmac_mod.compare_digest(authorization, f"Bearer {settings.cron_secret}"):
+    if not secure_equals(authorization, f"Bearer {settings.cron_secret}"):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid cron secret",
@@ -123,7 +122,7 @@ def run_reports_cron(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="CRON_SECRET is not configured (set it in the hosting dashboard)",
         )
-    if not authorization or not hmac_mod.compare_digest(authorization, f"Bearer {settings.cron_secret}"):
+    if not secure_equals(authorization, f"Bearer {settings.cron_secret}"):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid cron secret",

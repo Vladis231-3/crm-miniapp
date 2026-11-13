@@ -1,3 +1,5 @@
+import { Fragment } from 'react';
+import type { ReactElement } from 'react';
 import type { ContentAbout } from '../../context/AppContext';
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
@@ -35,8 +37,16 @@ export function StudioInfo({ about }: { about?: ContentAbout | null }) {
           )}
           <div className={imgSrc ? '' : 'md:col-span-2 max-w-2xl mx-auto'}>
             {about.text && (
-              <div className="text-gray-600 leading-relaxed text-sm space-y-3"
-                dangerouslySetInnerHTML={{ __html: about.text.replace(/\n/g, '<br/>') }} />
+              <div className="text-gray-600 leading-relaxed text-sm space-y-3">
+                {about.text
+                  .split('\n')
+                  .map((line, i, arr): ReactElement => (
+                    <Fragment key={i}>
+                      {line}
+                      {i < arr.length - 1 && <br />}
+                    </Fragment>
+                  ))}
+              </div>
             )}
             {about.features.length > 0 && (
               <div className="grid grid-cols-2 gap-3 mt-6">

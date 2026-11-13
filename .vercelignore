@@ -10,3 +10,14 @@ scripts
 Showcase
 backend/tests
 .opencode
+
+# P2-19 (аудит 13.11.2026): .vercelignore для деплоя перекрывает .gitignore, поэтому
+# .env* перечисляем явно — иначе .env.local (VERCEL_OIDC_TOKEN) и backend/.env.bak
+# уезжают в архив деплоя. Затрагивает только деплой-артефакт, не локальный build.
+.env*
+**/.env*
+*.env.bak
+**/*.env.bak
+!.env.example
+!**/.env.example
+

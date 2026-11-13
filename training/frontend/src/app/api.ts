@@ -53,7 +53,12 @@ type RequestOptions = {
 };
 
 function getInitData(): string {
-  return window.Telegram?.WebApp?.initData || import.meta.env.VITE_MOCK_INIT_DATA || '';
+  const fromTelegram = window.Telegram?.WebApp?.initData || '';
+  if (fromTelegram) return fromTelegram;
+  // P0: мок только для локальной разработки. В прод-сборке (import.meta.env.PROD)
+  // VITE_MOCK_INIT_DATA игнорируется, иначе любая сборка с этим env обходит Telegram-auth.
+  if (import.meta.env.DEV) return import.meta.env.VITE_MOCK_INIT_DATA || '';
+  return '';
 }
 
 async function getErrorDetail(response: Response) {

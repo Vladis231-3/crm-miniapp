@@ -441,7 +441,9 @@ class BookingWorkerPayload(BaseModel):
     workerName: str
     percent: float = Field(ge=0, le=100, default=0)
     payType: str = "percent"
-    fixedAmount: int | None = None
+    # P1-10: фикс мастера — деньги от персонала, поэтому только неотрицательный
+    # и в тех же пределах, что прочие денежные поля записи.
+    fixedAmount: int | None = Field(default=None, ge=0, le=10_000_000)
 
 
 class BookingServiceItem(BaseModel):
@@ -456,7 +458,7 @@ class AdditionalServiceWorkerPayload(BaseModel):
     workerName: str
     percent: int = Field(ge=0, le=100, default=0)
     payType: str = "percent"
-    fixedAmount: int | None = None
+    fixedAmount: int | None = Field(default=None, ge=0, le=10_000_000)
 
 
 class AdditionalServicePayload(BaseModel):
@@ -633,9 +635,11 @@ class BookingMaterialPayload(BaseModel):
     id: str
     stockItemId: str | None = None
     name: str
-    qty: float
+    # P0-1: без границ и allow_inf_nan=False JSON-число 1e400 превращалось в
+    # Infinity и сохранялось в БД, после чего /api/auth/session падал с 500.
+    qty: float = Field(ge=0, le=1_000_000, allow_inf_nan=False)
     unit: str
-    unitPrice: float
+    unitPrice: float = Field(ge=0, le=10_000_000, allow_inf_nan=False)
 
 
 class ShiftChecklistItemPayload(BaseModel):
@@ -1086,6 +1090,9 @@ class PayrollEntryCreateRequest(BaseModel):
     period: SalaryPeriod | None = None
     dateFrom: str | None = None
     dateTo: str | None = None
+    # P2-14: сегмент расхода/дохода. Раньше операции всегда падали в «мойку»,
+    # в отличие от pay-salary, который выбирает сегмент (см. main.py).
+    segment: SalarySegment = "all"
     # Ключ идемпотентности (uuid из формы): повторная отправка с тем же
     # ключом не создаёт дубликат операции, а возвращает результат первой.
     clientRequestId: str | None = Field(default=None, max_length=64)
@@ -1299,7 +1306,8 @@ class BookingCreateRequest(BaseModel):
     date: str
     time: str
     duration: int
-    price: int
+    # P0-2/P1-10: у клиента цена не принимается вовсе, у персонала — в границах.
+    price: int = Field(ge=0, le=10_000_000)
     status: BookingStatus
     workers: list[BookingWorkerPayload] = Field(default_factory=list)
     box: str
@@ -1356,7 +1364,7 @@ class BookingCreateRequest(BaseModel):
 class AddBookingServiceRequest(BaseModel):
     name: str
     serviceId: str
-    price: int
+    price: int = Field(ge=0, le=10_000_000)
     duration: int
 
 
@@ -1368,7 +1376,7 @@ class BookingUpdateRequest(BaseModel):
     date: str | None = None
     time: str | None = None
     duration: int | None = None
-    price: int | None = None
+    price: int | None = Field(default=None, ge=0, le=10_000_000)
     status: BookingStatus | None = None
     workers: list[BookingWorkerPayload] | None = None
     box: str | None = None

@@ -1,9 +1,15 @@
-fastapi==0.116.1
-python-multipart==0.0.20
+# P1-6 (audit 2026-11-13): файл синхронизирован с backend/requirements.txt;
+# именно его ставит Vercel (vercel.json -> api/index.py -> backend.app.main).
+fastapi==0.141.1
+starlette==1.6.0
 uvicorn[standard]==0.35.0
 sqlalchemy==2.0.43
 psycopg[binary]==3.2.12
 reportlab==4.4.10
 openpyxl==3.1.5
-python-dotenv==1.0.1
+python-dotenv==1.2.2
+python-multipart==0.0.31
 requests==2.34.2
+# P1-6: было "urllib3>=2.8.0" — 2.8.0 на PyPI не существует (последняя 2.7.0),
+# из-за чего pip-audit не мог разрешить файл. requests 2.34.2 требует urllib3<3.
+urllib3==2.7.0

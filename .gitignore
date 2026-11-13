@@ -40,6 +40,9 @@ Thumbs.db
 scripts/.project-map-watch.lock
 .vercel
 .env*
+# .env.example — шаблон без секретов, его держим в репозитории (после .env*,
+# иначе правило нижеперекрывалось и новые примеры молча игнорировались).
+!.env.example
 
 .backups/
 .skill-staging/

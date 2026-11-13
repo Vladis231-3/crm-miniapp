@@ -29,6 +29,18 @@ def verify_password(password: str, password_hash: str) -> bool:
     return hmac.compare_digest(calculated, digest)
 
 
+def secure_equals(left: str | None, right: str | None) -> bool:
+    """Сравнение секретов без утечки времени и без 500 на не-ASCII.
+
+    hmac.compare_digest(str, str) бросает TypeError, если строка содержит
+    не-ASCII символы: заголовок вида «Bearer <кириллица>» валил cron/webhook
+    в 500 и отправлял уведомление об ошибке. Сравниваем байты UTF-8.
+    """
+    if left is None or right is None:
+        return False
+    return hmac.compare_digest(left.encode("utf-8"), right.encode("utf-8"))
+
+
 def hash_one_time_code(code: str, secret: str) -> str:
     return hmac.new(secret.encode("utf-8"), code.encode("utf-8"), hashlib.sha256).hexdigest()
 

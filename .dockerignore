@@ -7,3 +7,14 @@ backend/.env
 backend/data
 frontend/node_modules
 frontend/dist
+
+# P2-19 (аудит 13.11.2026): env-файлы и их бэкапы не должны попадать ни в контекст
+# сборки, ни в образ: COPY backend /app/backend тянул backend/.env.bak с боевыми
+# TELEGRAM_BOT_TOKEN и APP_SECRET. Шаблон .env.example (без секретов) оставляем.
+.env*
+**/.env*
+*.env.bak
+**/*.env.bak
+!.env.example
+!**/.env.example
+

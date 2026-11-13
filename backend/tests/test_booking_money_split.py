@@ -272,7 +272,9 @@ class BookingMoneySplitTests(unittest.TestCase):
             json={
                 "workers": [{"linkId": link_id, "overrideEarned": 500}],
                 "materialsCost": 100,
-                "piggyDeposit": 250,
+                # P2-15: мастера + копилка + владельцы = 500 + 200 + 500 = 1200 =
+                # чек записи; больше чека ручной сплит не принимает.
+                "piggyDeposit": 200,
                 "owners": [{"ownerId": owner_ids[0], "amount": 300}, {"ownerId": owner_ids[1], "amount": 200}],
             },
         )
@@ -283,7 +285,7 @@ class BookingMoneySplitTests(unittest.TestCase):
         self.assertEqual(updated["workers"][0]["earned"], 500)
         self.assertEqual(updated["materialsCost"], 100)
         self.assertEqual(updated["materialsCostOverride"], 100)
-        self.assertEqual(updated["piggyDeposit"], 250)
+        self.assertEqual(updated["piggyDeposit"], 200)
         self.assertEqual(updated["ownersTotal"], 500)
         by_owner = {share["ownerId"]: share["amount"] for share in updated["ownerShares"]}
         self.assertEqual(by_owner.get(owner_ids[0]), 300)
@@ -308,7 +310,7 @@ class BookingMoneySplitTests(unittest.TestCase):
             )
             self.assertIsNotNone(deposit)
             assert deposit is not None
-            self.assertEqual(deposit.amount, 250)
+            self.assertEqual(deposit.amount, 200)
 
             shares = db.scalars(select(OwnerProfitShare).where(OwnerProfitShare.booking_id == booking["id"])).all()
             by_owner_db = {share.owner_id: share.amount for share in shares}

@@ -63,6 +63,8 @@ class Settings:
     google_calendar_client_id: str | None
     google_calendar_client_secret: str | None
     google_calendar_redirect_uri: str | None
+    # Бизнес-таймзона для «сегодня»/окон периодов (не таймзона процесса).
+    app_timezone: str
     google_calendar_timezone: str
 
 
@@ -175,14 +177,17 @@ def _parse_permanent_telegram_owners(raw: str | None) -> tuple[tuple[str, str, s
 
 # Telegram id создателя проекта. Единственный аккаунт, которому доступен
 # предпросмотр интерфейса от имени других ролей (см. /api/auth/role-preview).
-DEFAULT_CREATOR_TELEGRAM_IDS = ("974738256",)
+# P2-12: захардкоженного id больше нет — пустая настройка означает «функция
+# выключена». Раньше любой, кто зарегистрировался клиентом с этим Telegram id
+# (например, при ALLOW_INSECURE_CLIENT_AUTH), мог действовать от имени владельца.
+DEFAULT_CREATOR_TELEGRAM_IDS: tuple[str, ...] = ()
 
 
 def _parse_creator_telegram_ids(raw: str | None) -> tuple[str, ...]:
-    """Разрешённые Telegram id создателя. Пустая строка -> значения по умолчанию.
+    """Разрешённые Telegram id создателя. Пустая строка -> пусто (выключено).
 
     Список намеренно вынесен в конфигурацию: идентификаторы не должны жить
-    в исходниках, но дефолт сохраняет работоспособность «из коробки».
+    в исходниках.
     """
     if raw is None or not raw.strip():
         return DEFAULT_CREATOR_TELEGRAM_IDS
@@ -301,6 +306,11 @@ def get_settings() -> Settings:
             os.getenv("GOOGLE_CALENDAR_REDIRECT_URI") or ""
         ).strip()
         or None,
-        google_calendar_timezone=(os.getenv("GOOGLE_CALENDAR_TIMEZONE") or "Europe/Moscow").strip()
+        # P2-20: бизнес-таймзона. На Vercel процесс живёт в UTC, и date.today()
+        # сдвигал «сегодня» (зарплатные операции, окна отчётов) на 3 часа.
+        app_timezone=(os.getenv("APP_TIMEZONE") or "Europe/Moscow").strip() or "Europe/Moscow",
+        google_calendar_timezone=(
+            os.getenv("GOOGLE_CALENDAR_TIMEZONE") or os.getenv("APP_TIMEZONE") or "Europe/Moscow"
+        ).strip()
         or "Europe/Moscow",
     )

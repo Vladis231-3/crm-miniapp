@@ -526,8 +526,11 @@ class MoneyMatrixTests(unittest.TestCase):
         with SessionLocal() as db:
             shares = {s.owner_id: s.amount for s in db.scalars(
                 select(OwnerProfitShare).where(OwnerProfitShare.booking_id == booking["id"])).all()}
-        # Legacy без весов: 50/50 на двух активных.
-        self.assertEqual(sorted(shares.values()), [2300, 2300])
+        # Без весов доля делится поровну между ВСЕМИ активными владельцами
+        # (низкая находка аудита: раньше третий и следующие получали 0).
+        self.assertEqual(len(shares), 3)
+        self.assertEqual(sum(shares.values()), 4600)
+        self.assertEqual(sorted(shares.values())[-1] - sorted(shares.values())[0], 1)
 
         put = self.client.put(
             "/api/settings/owner/payout", headers=self.auth_headers(self.owner_token),
@@ -612,7 +615,11 @@ class MoneyMatrixTests(unittest.TestCase):
         self.assertEqual(split["asvcOwnerExtra"], 760)
 
     def test_dop_classic_owner_percent(self) -> None:
-        """Доп-классика: owner % доп-услуги режет доп-долю (как у основной)."""
+        """Доп-классика: owner % доп-услуги режет доп-долю (как у основной).
+
+        Хвост допа (100% − 50%) больше не теряется: P1-8 уводит его в копилку
+        этого же допа, поэтому цена допа распределяется целиком.
+        """
         self.reset_services()
         self.cfg("s2", owner_pay_type="percent", owner_pay_value=50)
         booking = self.make_booking(*S1, 10000)
@@ -621,15 +628,20 @@ class MoneyMatrixTests(unittest.TestCase):
                      workers=[{"workerId": "w1", "workerName": "Иван", "percent": 50}])
         booking = self.complete(booking["id"])
         split = self.split_of(booking["id"])
-        # Остаток 1000 → копилка 240, владельцам 50% от 760 = 380.
+        # Остаток 1000 → копилка 240, владельцам 50% от 760 = 380,
+        # второй половине (380) — тоже в копилку.
         self.assertEqual(split["asvcOwnerExtra"], 380)
         self.assertEqual(split["ownersTotal"], 4600 + 380)
-        self.assertEqual(split["piggyDeposit"], 2640)
+        self.assertEqual(split["piggyDeposit"], 2400 + 240 + 380)
         total = split["masterTotal"] + split["piggyDeposit"] + split["ownersTotal"]
-        self.assertLessEqual(total, 12000)
+        self.assertEqual(total, 12000)
 
     def test_dop_classic_owner_disabled(self) -> None:
-        """Доп-классика: владельцы допа выкл — доп-доли нет (видно как нераспределённые)."""
+        """Доп-классика: владельцы допа выкл — доп-доли нет, хвост идёт в копилку.
+
+        P1-8: раньше остаток допа (цена − мастера − 24% копилки) терялся
+        («нераспределённые»), теперь он падает в копилку этого же допа.
+        """
         self.reset_services()
         self.cfg("s2", owner_split_enabled=False)
         booking = self.make_booking(*S1, 10000)
@@ -640,7 +652,9 @@ class MoneyMatrixTests(unittest.TestCase):
         split = self.split_of(booking["id"])
         self.assertEqual(split["asvcOwnerExtra"], 0)
         self.assertEqual(split["ownersTotal"], 4600)
-        self.assertEqual([d["amount"] for d in split["asvcPiggyDeposits"]], [240])
+        self.assertEqual([d["amount"] for d in split["asvcPiggyDeposits"]], [1000])
+        total = split["masterTotal"] + split["piggyDeposit"] + split["ownersTotal"]
+        self.assertEqual(total, 12000)
 
     def test_dop_pipeline_owner_disabled(self) -> None:
         """Доп-конвейер: владельцы выкл — копилка считается от полного остатка."""
@@ -655,9 +669,12 @@ class MoneyMatrixTests(unittest.TestCase):
         booking = self.complete(booking["id"])
         split = self.split_of(booking["id"])
         dops = split["asvcPiggyDeposits"]
+        # P1-8: 10% от остатка + хвост (владельцы выкл) — весь остаток допа.
         self.assertEqual(len(dops), 1)
-        self.assertEqual(dops[0]["amount"], 100)
+        self.assertEqual(dops[0]["amount"], 1000)
         self.assertEqual(split["asvcOwnerExtra"], 0)
+        total = split["masterTotal"] + split["piggyDeposit"] + split["ownersTotal"]
+        self.assertEqual(total, 12000)
 
     def test_cancelled_booking_drops_owner_accrual(self) -> None:
         """F5: отмена completed-записи убирает её pending-доли из ЗП владельцев."""
@@ -714,8 +731,9 @@ class MoneyMatrixTests(unittest.TestCase):
         put = self.client.put(
             f"/api/owner/bookings/{booking['id']}/money-split",
             headers=self.auth_headers(self.owner_token),
+            # P2-15: 3000 (мастера) + 2000 (копилка) + 4600 (владельцы) <= 10000.
             json={"workers": [], "materialsCost": None,
-                  "piggyDeposit": 5000, "owners": []})
+                  "piggyDeposit": 2000, "owners": []})
         self.assertEqual(put.status_code, 200, put.text)
         totals = self.client.get(
             "/api/owner/bookings-history/totals",
@@ -724,7 +742,7 @@ class MoneyMatrixTests(unittest.TestCase):
         self.assertEqual(totals.status_code, 200, totals.text)
         wash = [p for p in totals.json()["piggy"] if p["resourceGroup"] == "wash"]
         self.assertEqual(len(wash), 1)
-        self.assertEqual(wash[0]["amount"], 5000)
+        self.assertEqual(wash[0]["amount"], 2000)
         archive = self.client.get(
             "/api/owner/archive",
             headers=self.auth_headers(self.owner_token),
@@ -732,7 +750,7 @@ class MoneyMatrixTests(unittest.TestCase):
         self.assertEqual(archive.status_code, 200, archive.text)
         items = [b for b in archive.json()["bookings"] if b["id"] == booking["id"]]
         self.assertEqual(len(items), 1)
-        self.assertEqual(items[0]["piggyDeposit"], 5000)
+        self.assertEqual(items[0]["piggyDeposit"], 2000)
 
     def test_archive_profit_counts_booking_materials_once(self) -> None:
         """Архив: списание материалов сидит в net — Expense-строка не дублирует его в profit."""
