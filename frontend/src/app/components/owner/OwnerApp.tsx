@@ -13696,7 +13696,7 @@ paymentSettled: false,
             className="fixed bottom-20 left-4 right-4 z-[100] flex items-center gap-3 p-3 rounded-2xl shadow-lg"
             style={{ background: surface, border: `1px solid ${accent}40` }}>
             <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0" style={{ background: `${accent}20` }}><Check size={14} strokeWidth={1.75} style={{ color: accent }} /></div>
-            <div className="flex-1 text-sm">{bottomToast}</div>
+            <div className="flex-1 text-sm whitespace-pre-line">{bottomToast}</div>
             <button onClick={() => setBottomToast(null)}><X size={14} strokeWidth={1.75} className={sub} /></button>
           </motion.div>
         )}

@@ -1,6 +1,6 @@
 # PROJECT_MAP — карта проекта
 
-> Автосгенерировано 2026-11-13 18:15 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
+> Автосгенерировано 2026-11-14 15:58 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
 
 **Обновление:**
 
@@ -13,7 +13,7 @@ python scripts/generate_project_map.py --install-hook  # git pre-commit хук (
 ## Статистика
 
 - Файлов кода: **529**
-- Строк кода: **189 695**
+- Строк кода: **189 835**
 - По расширениям: `.js`: 3, `.mjs`: 9, `.py`: 160, `.ts`: 41, `.tsx`: 316
 
 ## Архитектура
@@ -36,6 +36,10 @@ concept1.0/
 ├── .github/
 │   └── workflows/
 │       └── ci.yml
+├── .mcacp/
+│   └── dsh/
+│       └── sessions/
+│           └── 33dbd8ef-f201-4aa2-a2f6-8753298304b1.json
 ├── .postman/
 │   └── resources.yaml
 ├── .skill-staging/
@@ -981,7 +985,7 @@ concept1.0/
 - `_pull_one_calendardef _pull_one_calendar(db: Any, settings: Settings, conn: dict[str, Any]) -> dict[str, Any]: """Обратная синхронизация одного календаря. Возвращает свою статистику. result["ok"]=Fa` (стр. 1899)
 - `_pull_calendar_changes_impldef _pull_calendar_changes_impl(db: Any, settings: Settings) -> dict[str, Any]: result = _empty_pull_result() if not is_configured(settings, db):` (стр. 1953)
 
-### backend/app/main.py (29077 строк)
+### backend/app/main.py (29095 строк)
 
 Роуты (156):
 
@@ -1080,68 +1084,68 @@ concept1.0/
   `POST /api/workers/{worker_id}/penalties/revoke-all` -> `revoke_all_worker_penalties` (декоратор: стр. 22006)
   `POST /api/telegram/link-code` -> `generate_telegram_link_code` (декоратор: стр. 22152)
   `PUT /api/settings/services` -> `save_services` (декоратор: стр. 22206)
-  `POST /api/settings/services/split-preview` -> `preview_service_split` (декоратор: стр. 22310)
-  `PUT /api/settings/boxes` -> `save_boxes` (декоратор: стр. 22451)
-  `PUT /api/settings/schedule` -> `save_schedule` (декоратор: стр. 22509)
-  `PUT /api/settings/admin/profile` -> `save_admin_profile` (декоратор: стр. 22557)
-  `PUT /api/settings/admin/notifications` -> `save_admin_notifications` (декоратор: стр. 22631)
-  `PUT /api/settings/workers/{worker_id}/profile` -> `save_worker_profile` (декоратор: стр. 22655)
-  `PUT /api/settings/workers/{worker_id}/notifications` -> `save_worker_notifications` (декоратор: стр. 22715)
-  `PUT /api/settings/owner/company` -> `save_owner_company` (декоратор: стр. 22757)
-  `PUT /api/settings/owner/notifications` -> `save_owner_notifications` (декоратор: стр. 22781)
-  `GET /api/settings/owner/payout` -> `get_owner_payout` (декоратор: стр. 22826)
-  `PUT /api/settings/owner/payout` -> `save_owner_payout` (декоратор: стр. 22838)
-  `PUT /api/settings/owner/integrations` -> `save_owner_integrations` (декоратор: стр. 22866)
-  `GET /api/owner/integrations/google/auth-url` -> `get_google_calendar_auth_url` (декоратор: стр. 22901)
-  `GET /api/owner/integrations/google/callback` -> `google_calendar_callback` (декоратор: стр. 22972)
-  `POST /api/owner/integrations/google/disconnect` -> `disconnect_google_calendar` (декоратор: стр. 23070)
-  `GET /api/owner/integrations/google/status` -> `get_google_calendar_status` (декоратор: стр. 23089)
-  `POST /api/owner/integrations/google/invites` -> `create_google_calendar_invite` (декоратор: стр. 23126)
-  `DELETE /api/owner/integrations/google/connections/{connection_id}` -> `delete_google_calendar_connection` (декоратор: стр. 23161)
-  `PUT /api/owner/integrations/google/credentials` -> `save_google_calendar_credentials` (декоратор: стр. 23187)
-  `DELETE /api/owner/integrations/google/credentials` -> `delete_google_calendar_credentials` (декоратор: стр. 23220)
-  `POST /api/owner/integrations/google/sync` -> `sync_google_calendar_now` (декоратор: стр. 23232)
-  `POST /api/owner/inactive-clients/remind-admin` -> `remind_admin_about_inactive_clients` (декоратор: стр. 23262)
-  `POST /api/owner/reminders/dispatch` -> `dispatch_owner_booking_reminders` (декоратор: стр. 23320)
-  `PUT /api/settings/owner/security` -> `save_owner_security` (декоратор: стр. 23340)
-  `PUT /api/workers/settings` -> `save_worker_settings` (декоратор: стр. 23376)
-  `GET /api/admin/workers/payroll` -> `get_admin_workers_payroll` (декоратор: стр. 23555)
-  `PUT /api/admin/workers/payroll` -> `save_admin_worker_payroll` (декоратор: стр. 23593)
-  `GET /api/owner/outsource/payroll` -> `get_owner_outsource_payroll` (декоратор: стр. 23762)
-  `GET /api/outsourcers` -> `list_outsourcers` (декоратор: стр. 23806)
-  `POST /api/outsourcers` -> `create_outsourcer` (декоратор: стр. 23818)
-  `PATCH /api/outsourcers/{outsourcer_id}` -> `update_outsourcer` (декоратор: стр. 23843)
-  `GET /api/owner/outsourcers/report` -> `get_outsourcers_report` (декоратор: стр. 23871)
-  `GET /api/owner/outsourcers/{outsourcer_id}/movements` -> `get_outsourcer_movements` (декоратор: стр. 23925)
-  `POST /api/payroll/entries` -> `create_payroll_entry` (декоратор: стр. 23953)
-  `PUT /api/payroll/entries/{entry_id}` -> `update_payroll_entry` (декоратор: стр. 24299)
-  `DELETE /api/payroll/entries/{entry_id}` -> `delete_payroll_entry` (декоратор: стр. 24460)
-  `PUT /api/payroll/booking-workers/{link_id}/override-earned` -> `update_booking_worker_override_earned` (декоратор: стр. 24550)
-  `GET /api/owner/bookings-history` -> `get_owner_bookings_history` (декоратор: стр. 24790)
-  `GET /api/owner/bookings-history/totals` -> `get_owner_bookings_history_totals` (декоратор: стр. 24880)
-  `GET /api/owner/archive` -> `get_owner_archive` (декоратор: стр. 25078)
-  `GET /api/owner/money-flow` -> `get_owner_money_flow` (декоратор: стр. 25403)
-  `GET /api/owner/bookings/{booking_id}/money-split` -> `get_owner_booking_money_split` (декоратор: стр. 25951)
-  `PUT /api/owner/bookings/{booking_id}/money-split` -> `update_owner_booking_money_split` (декоратор: стр. 25965)
-  `POST /api/admin/maintenance/repair-owner-shares` -> `repair_missing_owner_shares` (декоратор: стр. 26147)
-  `POST /api/admin/maintenance/recalc-money` -> `recalc_money_by_formulas` (декоратор: стр. 26211)
-  `GET /api/owner/workers/{worker_id}/salary-detail` -> `owner_worker_salary_detail` (декоратор: стр. 26696)
-  `GET /api/worker/salary-detail` -> `worker_my_salary_detail` (декоратор: стр. 27169)
-  `POST /api/owner/workers/{worker_id}/pay-salary` -> `owner_worker_pay_salary` (декоратор: стр. 27586)
-  `GET /api/owner/owners/salary-detail` -> `owner_salary_detail` (декоратор: стр. 27895)
-  `PATCH /api/owner/owners/{owner_id}/master-role` -> `set_owner_master_role` (декоратор: стр. 28162)
-  `POST /api/owner/owners/pay-salary` -> `owner_pay_salary` (декоратор: стр. 28189)
-  `POST /api/workers` -> `create_worker` (декоратор: стр. 28481)
-  `POST /api/workers/{worker_id}/reset-password` -> `reset_worker_password` (декоратор: стр. 28619)
-  `DELETE /api/workers/{worker_id}` -> `fire_worker` (декоратор: стр. 28679)
-  `GET /api/auth/session` -> `get_session_bootstrap` (декоратор: стр. 28875)
-  `GET /api/auth/role-preview` -> `get_role_preview` (декоратор: стр. 28889)
-  `POST /api/auth/role-preview` -> `set_role_preview` (декоратор: стр. 28904)
-  `GET /api/auth/consent/check` -> `check_consent` (декоратор: стр. 28956)
-  `POST /api/auth/consent` -> `record_consent` (декоратор: стр. 28968)
-  `GET /api/auth/sessions` -> `get_active_sessions` (декоратор: стр. 28992)
-  `POST /api/auth/logout` -> `logout` (декоратор: стр. 29000)
-  `POST /api/auth/change-password` -> `change_password` (декоратор: стр. 29013)
+  `POST /api/settings/services/split-preview` -> `preview_service_split` (декоратор: стр. 22328)
+  `PUT /api/settings/boxes` -> `save_boxes` (декоратор: стр. 22469)
+  `PUT /api/settings/schedule` -> `save_schedule` (декоратор: стр. 22527)
+  `PUT /api/settings/admin/profile` -> `save_admin_profile` (декоратор: стр. 22575)
+  `PUT /api/settings/admin/notifications` -> `save_admin_notifications` (декоратор: стр. 22649)
+  `PUT /api/settings/workers/{worker_id}/profile` -> `save_worker_profile` (декоратор: стр. 22673)
+  `PUT /api/settings/workers/{worker_id}/notifications` -> `save_worker_notifications` (декоратор: стр. 22733)
+  `PUT /api/settings/owner/company` -> `save_owner_company` (декоратор: стр. 22775)
+  `PUT /api/settings/owner/notifications` -> `save_owner_notifications` (декоратор: стр. 22799)
+  `GET /api/settings/owner/payout` -> `get_owner_payout` (декоратор: стр. 22844)
+  `PUT /api/settings/owner/payout` -> `save_owner_payout` (декоратор: стр. 22856)
+  `PUT /api/settings/owner/integrations` -> `save_owner_integrations` (декоратор: стр. 22884)
+  `GET /api/owner/integrations/google/auth-url` -> `get_google_calendar_auth_url` (декоратор: стр. 22919)
+  `GET /api/owner/integrations/google/callback` -> `google_calendar_callback` (декоратор: стр. 22990)
+  `POST /api/owner/integrations/google/disconnect` -> `disconnect_google_calendar` (декоратор: стр. 23088)
+  `GET /api/owner/integrations/google/status` -> `get_google_calendar_status` (декоратор: стр. 23107)
+  `POST /api/owner/integrations/google/invites` -> `create_google_calendar_invite` (декоратор: стр. 23144)
+  `DELETE /api/owner/integrations/google/connections/{connection_id}` -> `delete_google_calendar_connection` (декоратор: стр. 23179)
+  `PUT /api/owner/integrations/google/credentials` -> `save_google_calendar_credentials` (декоратор: стр. 23205)
+  `DELETE /api/owner/integrations/google/credentials` -> `delete_google_calendar_credentials` (декоратор: стр. 23238)
+  `POST /api/owner/integrations/google/sync` -> `sync_google_calendar_now` (декоратор: стр. 23250)
+  `POST /api/owner/inactive-clients/remind-admin` -> `remind_admin_about_inactive_clients` (декоратор: стр. 23280)
+  `POST /api/owner/reminders/dispatch` -> `dispatch_owner_booking_reminders` (декоратор: стр. 23338)
+  `PUT /api/settings/owner/security` -> `save_owner_security` (декоратор: стр. 23358)
+  `PUT /api/workers/settings` -> `save_worker_settings` (декоратор: стр. 23394)
+  `GET /api/admin/workers/payroll` -> `get_admin_workers_payroll` (декоратор: стр. 23573)
+  `PUT /api/admin/workers/payroll` -> `save_admin_worker_payroll` (декоратор: стр. 23611)
+  `GET /api/owner/outsource/payroll` -> `get_owner_outsource_payroll` (декоратор: стр. 23780)
+  `GET /api/outsourcers` -> `list_outsourcers` (декоратор: стр. 23824)
+  `POST /api/outsourcers` -> `create_outsourcer` (декоратор: стр. 23836)
+  `PATCH /api/outsourcers/{outsourcer_id}` -> `update_outsourcer` (декоратор: стр. 23861)
+  `GET /api/owner/outsourcers/report` -> `get_outsourcers_report` (декоратор: стр. 23889)
+  `GET /api/owner/outsourcers/{outsourcer_id}/movements` -> `get_outsourcer_movements` (декоратор: стр. 23943)
+  `POST /api/payroll/entries` -> `create_payroll_entry` (декоратор: стр. 23971)
+  `PUT /api/payroll/entries/{entry_id}` -> `update_payroll_entry` (декоратор: стр. 24317)
+  `DELETE /api/payroll/entries/{entry_id}` -> `delete_payroll_entry` (декоратор: стр. 24478)
+  `PUT /api/payroll/booking-workers/{link_id}/override-earned` -> `update_booking_worker_override_earned` (декоратор: стр. 24568)
+  `GET /api/owner/bookings-history` -> `get_owner_bookings_history` (декоратор: стр. 24808)
+  `GET /api/owner/bookings-history/totals` -> `get_owner_bookings_history_totals` (декоратор: стр. 24898)
+  `GET /api/owner/archive` -> `get_owner_archive` (декоратор: стр. 25096)
+  `GET /api/owner/money-flow` -> `get_owner_money_flow` (декоратор: стр. 25421)
+  `GET /api/owner/bookings/{booking_id}/money-split` -> `get_owner_booking_money_split` (декоратор: стр. 25969)
+  `PUT /api/owner/bookings/{booking_id}/money-split` -> `update_owner_booking_money_split` (декоратор: стр. 25983)
+  `POST /api/admin/maintenance/repair-owner-shares` -> `repair_missing_owner_shares` (декоратор: стр. 26165)
+  `POST /api/admin/maintenance/recalc-money` -> `recalc_money_by_formulas` (декоратор: стр. 26229)
+  `GET /api/owner/workers/{worker_id}/salary-detail` -> `owner_worker_salary_detail` (декоратор: стр. 26714)
+  `GET /api/worker/salary-detail` -> `worker_my_salary_detail` (декоратор: стр. 27187)
+  `POST /api/owner/workers/{worker_id}/pay-salary` -> `owner_worker_pay_salary` (декоратор: стр. 27604)
+  `GET /api/owner/owners/salary-detail` -> `owner_salary_detail` (декоратор: стр. 27913)
+  `PATCH /api/owner/owners/{owner_id}/master-role` -> `set_owner_master_role` (декоратор: стр. 28180)
+  `POST /api/owner/owners/pay-salary` -> `owner_pay_salary` (декоратор: стр. 28207)
+  `POST /api/workers` -> `create_worker` (декоратор: стр. 28499)
+  `POST /api/workers/{worker_id}/reset-password` -> `reset_worker_password` (декоратор: стр. 28637)
+  `DELETE /api/workers/{worker_id}` -> `fire_worker` (декоратор: стр. 28697)
+  `GET /api/auth/session` -> `get_session_bootstrap` (декоратор: стр. 28893)
+  `GET /api/auth/role-preview` -> `get_role_preview` (декоратор: стр. 28907)
+  `POST /api/auth/role-preview` -> `set_role_preview` (декоратор: стр. 28922)
+  `GET /api/auth/consent/check` -> `check_consent` (декоратор: стр. 28974)
+  `POST /api/auth/consent` -> `record_consent` (декоратор: стр. 28986)
+  `GET /api/auth/sessions` -> `get_active_sessions` (декоратор: стр. 29010)
+  `POST /api/auth/logout` -> `logout` (декоратор: стр. 29018)
+  `POST /api/auth/change-password` -> `change_password` (декоратор: стр. 29031)
 ```
 
 Классы и функции (353):
@@ -1403,11 +1407,12 @@ concept1.0/
 - `class SchemaMigration(Base):` (стр. 836)
 - `class Outbox(Base):` (стр. 853)
 
-### backend/app/money_formula.py (40 строк)
+### backend/app/money_formula.py (58 строк)
 
-Классы и функции (1):
+Классы и функции (2):
 
-- `formula_tail_errordef formula_tail_error( *, piggy_pay_type: str | None, piggy_pay_value: int | None, owner_pay_type: str | None, owner_pay_value: int | None, owner_split_enabled: bool | None,` (стр. 12)
+- `formula_signaturedef formula_signature( *, piggy_pay_type: str | None, piggy_pay_value: int | None, owner_pay_type: str | None, owner_pay_value: int | None, owner_split_enabled: bool | None,` (стр. 12)
+- `formula_tail_errordef formula_tail_error( *, piggy_pay_type: str | None, piggy_pay_value: int | None, owner_pay_type: str | None, owner_pay_value: int | None, owner_split_enabled: bool | None,` (стр. 30)
 
 ### backend/app/outbox.py (390 строк)
 
@@ -3477,26 +3482,32 @@ concept1.0/
 - `test_rejects_future_auth_date_beyond_skewdef test_rejects_future_auth_date_beyond_skew() -> None: with pytest.raises(ValueError, match="auth_date"):` (стр. 51)
 - `test_rejects_expired_init_data_using_configured_ttldef test_rejects_expired_init_data_using_configured_ttl() -> None: with pytest.raises(ValueError, match="expired"):` (стр. 60)
 
-### backend/tests/test_service_formula_strict.py (191 строк)
+### backend/tests/test_service_formula_strict.py (295 строк)
 
-Классы и функции (16):
+Классы и функции (22):
 
 - `class _Helpers(unittest.TestCase):` (стр. 20)
 - `class FormulaTailValidatorTests(unittest.TestCase):` (стр. 29)
 - `FormulaTailValidatorTests.checkdef check(self, **kw) -> str | None: from app.money_formula import formula_tail_error args = { "piggy_pay_type": "", "piggy_pay_value": 0, "owner_pay_type": "", "owner_pay_value": ` (стр. 30)
 - `FormulaTailValidatorTests.test_validdef test_valid(self) -> None: self.assertIsNone(self.check()) self.assertIsNone(self.check(piggy_pay_type="percent", piggy_pay_value=10)) self.assertIsNone(self.check(owner_split_e` (стр. 41)
 - `FormulaTailValidatorTests.test_taildef test_tail(self) -> None: self.assertIn("выключены", self.check(owner_split_enabled=False) or "") self.assertIn("выключены", self.check(owner_split_enabled=False, piggy_pay_type` (стр. 49)
-- `class FormulaStrictApiTests(_Helpers):` (стр. 57)
-- `FormulaStrictApiTests.services_payloaddef services_payload(self) -> list[dict]: from app.database import SessionLocal from app.main import _service_payload from app.models import Service with SessionLocal() as db: retu` (стр. 58)
-- `FormulaStrictApiTests.put_servicesdef put_services(self, payload: list[dict]): return self.client.put( "/api/settings/services", headers=self.auth_headers(self.owner_token), json=payload)` (стр. 66)
-- `FormulaStrictApiTests.test_save_blocks_tail_formuladef test_save_blocks_tail_formula(self) -> None: self.reset_services() payload = self.services_payload() for item in payload: if item["id"] == "s2": item["ownerSplitEnabled"] = Fal` (стр. 70)
-- `FormulaStrictApiTests.test_owners_before_piggy_take_whole_remainderdef test_owners_before_piggy_take_whole_remainder(self) -> None: self.reset_services() self.cfg("s1", piggy_pay_type="percent", piggy_pay_value=10, split_order=["materials", "maste` (стр. 89)
-- `FormulaStrictApiTests.test_valid_formulas_distribute_whole_pricedef test_valid_formulas_distribute_whole_price(self) -> None: orders = [[], ["materials", "piggy", "master", "owners"], ["materials", "master", "owners", "piggy"]] piggies = [("", ` (стр. 98)
-- `FormulaStrictApiTests.piggy_sumdef piggy_sum(self, booking_id: str) -> int: return int(sum(t["amount"] for t in self.deposits_of(booking_id) if t["type"] == "deposit_24percent"))` (стр. 126)
-- `FormulaStrictApiTests.recalcdef recalc(self, dry_run: bool): return self.client.post( f"/api/admin/maintenance/recalc-money?dryRun={'true' if dry_run else 'false'}", headers=self.auth_headers(self.owner_token` (стр. 129)
-- `FormulaStrictApiTests.test_recalc_historydef test_recalc_history(self) -> None: from app.database import SessionLocal from app.models import OwnerProfitShare self.reset_services() booking = self.complete(self.make_booking` (стр. 134)
-- `FormulaStrictApiTests.test_recalc_keeps_paid_sharesdef test_recalc_keeps_paid_shares(self) -> None: from app.database import SessionLocal from app.models import OwnerProfitShare self.reset_services() booking = self.complete(self.ma` (стр. 161)
-- `FormulaStrictApiTests.test_recalc_refuses_with_tail_formuladef test_recalc_refuses_with_tail_formula(self) -> None: self.reset_services() self.cfg("s2", owner_split_enabled=False) response = self.recalc(True) self.assertEqual(response.stat` (стр. 182)
+- `FormulaTailValidatorTests.test_formula_signature_normalizesdef test_formula_signature_normalizes(self) -> None: from app.money_formula import formula_signature def sign(**kw):` (стр. 56)
+- `FormulaTailValidatorTests.signdef sign(**kw): args = { "piggy_pay_type": None, "piggy_pay_value": None, "owner_pay_type": None, "owner_pay_value": None, "owner_split_enabled": None, } args.update(kw) return for` (стр. 59)
+- `class FormulaStrictApiTests(_Helpers):` (стр. 75)
+- `FormulaStrictApiTests.services_payloaddef services_payload(self) -> list[dict]: from app.database import SessionLocal from app.main import _service_payload from app.models import Service with SessionLocal() as db: retu` (стр. 76)
+- `FormulaStrictApiTests.put_servicesdef put_services(self, payload: list[dict]): return self.client.put( "/api/settings/services", headers=self.auth_headers(self.owner_token), json=payload)` (стр. 84)
+- `FormulaStrictApiTests.test_save_blocks_tail_formuladef test_save_blocks_tail_formula(self) -> None: self.reset_services() payload = self.services_payload() for item in payload: if item["id"] == "s2": item["ownerSplitEnabled"] = Fal` (стр. 88)
+- `FormulaStrictApiTests.test_legacy_tail_formula_does_not_block_other_servicesdef test_legacy_tail_formula_does_not_block_other_services(self) -> None: from app.database import SessionLocal from app.models import Service self.reset_services() self.cfg("s1", ` (стр. 107)
+- `FormulaStrictApiTests.test_legacy_tail_formula_cannot_be_changed_to_another_taildef test_legacy_tail_formula_cannot_be_changed_to_another_tail(self) -> None: from app.database import SessionLocal from app.models import Service self.reset_services() self.cfg("s` (стр. 128)
+- `FormulaStrictApiTests.test_new_service_with_tail_formula_rejecteddef test_new_service_with_tail_formula_rejected(self) -> None: from app.database import SessionLocal from app.models import Service self.reset_services() payload = self.services_pa` (стр. 154)
+- `FormulaStrictApiTests.test_legacy_tail_formula_can_be_fixeddef test_legacy_tail_formula_can_be_fixed(self) -> None: from app.database import SessionLocal from app.models import Service self.reset_services() self.cfg("s1", owner_split_enabl` (стр. 175)
+- `FormulaStrictApiTests.test_owners_before_piggy_take_whole_remainderdef test_owners_before_piggy_take_whole_remainder(self) -> None: self.reset_services() self.cfg("s1", piggy_pay_type="percent", piggy_pay_value=10, split_order=["materials", "maste` (стр. 193)
+- `FormulaStrictApiTests.test_valid_formulas_distribute_whole_pricedef test_valid_formulas_distribute_whole_price(self) -> None: orders = [[], ["materials", "piggy", "master", "owners"], ["materials", "master", "owners", "piggy"]] piggies = [("", ` (стр. 202)
+- `FormulaStrictApiTests.piggy_sumdef piggy_sum(self, booking_id: str) -> int: return int(sum(t["amount"] for t in self.deposits_of(booking_id) if t["type"] == "deposit_24percent"))` (стр. 230)
+- `FormulaStrictApiTests.recalcdef recalc(self, dry_run: bool): return self.client.post( f"/api/admin/maintenance/recalc-money?dryRun={'true' if dry_run else 'false'}", headers=self.auth_headers(self.owner_token` (стр. 233)
+- `FormulaStrictApiTests.test_recalc_historydef test_recalc_history(self) -> None: from app.database import SessionLocal from app.models import OwnerProfitShare self.reset_services() booking = self.complete(self.make_booking` (стр. 238)
+- `FormulaStrictApiTests.test_recalc_keeps_paid_sharesdef test_recalc_keeps_paid_shares(self) -> None: from app.database import SessionLocal from app.models import OwnerProfitShare self.reset_services() booking = self.complete(self.ma` (стр. 265)
+- `FormulaStrictApiTests.test_recalc_refuses_with_tail_formuladef test_recalc_refuses_with_tail_formula(self) -> None: self.reset_services() self.cfg("s2", owner_split_enabled=False) response = self.recalc(True) self.assertEqual(response.stat` (стр. 286)
 
 ### backend/tests/test_service_resource_group_validation.py (412 строк)
 
@@ -6127,8 +6138,12 @@ concept1.0/
 
 ## Недавно изменённые файлы
 
-- `audit/reports/security_money_audit_2026-11-13_fixes.md` (2026-11-13 21:15)
-- `backend/app/main.py` (2026-11-13 21:14)
+- `.mcacp/dsh/sessions/33dbd8ef-f201-4aa2-a2f6-8753298304b1.json` (2026-11-14 18:57)
+- `backend/tests/test_service_formula_strict.py` (2026-11-14 18:42)
+- `backend/app/main.py` (2026-11-14 18:41)
+- `backend/app/money_formula.py` (2026-11-14 18:41)
+- `frontend/src/app/components/owner/OwnerApp.tsx` (2026-11-14 18:40)
+- `audit/reports/security_money_audit_2026-11-13_fixes.md` (2026-11-13 21:17)
 - `backend/app/exports.py` (2026-11-13 20:39)
 - `backend/app/google_calendar.py` (2026-11-13 20:27)
 - `backend/tests/test_money_matrix.py` (2026-11-13 20:26)
@@ -6138,7 +6153,3 @@ concept1.0/
 - `scripts/assert-safe-for-tunnel.ps1` (2026-11-13 18:53)
 - `scripts/start_pinggy_tunnel.cmd` (2026-11-13 18:52)
 - `scripts/start_localhostrun_tunnel.cmd` (2026-11-13 18:52)
-- `backend/.env.example` (2026-11-13 18:51)
-- `backend/tests/test_audit_2026_11_13.py` (2026-11-13 18:48)
-- `backend/app/error_notifier.py` (2026-11-13 18:47)
-- `.gitignore` (2026-11-13 18:46)

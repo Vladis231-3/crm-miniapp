@@ -9,6 +9,24 @@
 from __future__ import annotations
 
 
+def formula_signature(
+    *,
+    piggy_pay_type: str | None,
+    piggy_pay_value: int | None,
+    owner_pay_type: str | None,
+    owner_pay_value: int | None,
+    owner_split_enabled: bool | None,
+) -> tuple[str, int, str, int, bool]:
+    """Нормализованная формула для сравнения сохранённой и присланной."""
+    return (
+        piggy_pay_type or "",
+        int(piggy_pay_value or 0),
+        owner_pay_type or "",
+        int(owner_pay_value or 0),
+        owner_split_enabled is not False,
+    )
+
+
 def formula_tail_error(
     *,
     piggy_pay_type: str | None,

@@ -81,7 +81,7 @@ from .config import get_settings, PERSISTENT_DATA_DIR
 from .date_utils import parse_date_param, parse_dmy, validate_range
 from .finance import money, money_int, salary_base_for_period
 from .finance_sync import sync_expense_piggy_transaction
-from .money_formula import formula_tail_error
+from .money_formula import formula_signature, formula_tail_error
 
 from .google_calendar import (
     GOOGLE_CALENDAR_INVITES_KEY,
@@ -22217,8 +22217,12 @@ def save_services(
 
     _ensure_staff_role(session_data, {"admin", "owner"})
 
+    existing = {service.id: service for service in db.scalars(select(Service)).all()}
+
     # Формула обязана распределять чек целиком: хвост, который никому не
-    # уходит, делал копилки/доли кривыми — такую формулу не сохраняем.
+    # уходит, делал копилки/доли кривыми. Новые услуги и услуги с изменённой
+    # формулой такую формулу не сохраняют; унаследованную нетронутую формулу
+    # старой услуги не трогаем — иначе она блокирует правки остальных услуг.
     formula_errors = []
     for item in payload:
         reason = formula_tail_error(
@@ -22228,15 +22232,29 @@ def save_services(
             owner_pay_value=item.ownerPayValue,
             owner_split_enabled=item.ownerSplitEnabled,
         )
-        if reason:
-            formula_errors.append(f"«{item.name}»: {reason}")
+        if not reason:
+            continue
+        saved = existing.get(item.id)
+        if saved is not None and formula_signature(
+            piggy_pay_type=saved.piggy_pay_type,
+            piggy_pay_value=saved.piggy_pay_value,
+            owner_pay_type=saved.owner_pay_type,
+            owner_pay_value=saved.owner_pay_value,
+            owner_split_enabled=saved.owner_split_enabled,
+        ) == formula_signature(
+            piggy_pay_type=item.piggyPayType,
+            piggy_pay_value=item.piggyPayValue,
+            owner_pay_type=item.ownerPayType,
+            owner_pay_value=item.ownerPayValue,
+            owner_split_enabled=item.ownerSplitEnabled,
+        ):
+            continue
+        formula_errors.append(f"«{item.name}»: {reason}")
     if formula_errors:
         raise HTTPException(
             status_code=400,
             detail="Формула раздела денег с нераспределённым хвостом:\n" + "\n".join(formula_errors),
         )
-
-    existing = {service.id: service for service in db.scalars(select(Service)).all()}
 
     submitted_ids = {item.id for item in payload}
 

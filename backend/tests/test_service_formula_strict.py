@@ -53,6 +53,24 @@ class FormulaTailValidatorTests(unittest.TestCase):
         self.assertIsNotNone(reason)
         self.assertIn("50%", reason or "")
 
+    def test_formula_signature_normalizes(self) -> None:
+        from app.money_formula import formula_signature
+
+        def sign(**kw):
+            args = {
+                "piggy_pay_type": None, "piggy_pay_value": None,
+                "owner_pay_type": None, "owner_pay_value": None,
+                "owner_split_enabled": None,
+            }
+            args.update(kw)
+            return formula_signature(**args)
+
+        self.assertEqual(sign(), sign(piggy_pay_type="", piggy_pay_value=0,
+                                      owner_pay_type="", owner_pay_value=0,
+                                      owner_split_enabled=True))
+        self.assertEqual(sign(owner_split_enabled=None), sign(owner_split_enabled=True))
+        self.assertNotEqual(sign(owner_split_enabled=False), sign(owner_split_enabled=True))
+
 
 class FormulaStrictApiTests(_Helpers):
     def services_payload(self) -> list[dict]:
@@ -85,6 +103,92 @@ class FormulaStrictApiTests(_Helpers):
         self.assertEqual(response.status_code, 200, response.text)
         self.assertTrue(all("formulaError" in item for item in response.json()))
         self.assertTrue(all(item["formulaError"] is None for item in response.json()))
+
+    def test_legacy_tail_formula_does_not_block_other_services(self) -> None:
+        from app.database import SessionLocal
+        from app.models import Service
+
+        self.reset_services()
+        self.cfg("s1", owner_split_enabled=False, piggy_pay_type="")
+        payload = self.services_payload()
+        for item in payload:
+            if item["id"] == "s2":
+                item["name"] = "Полировка стекла обновлённая"
+                item["price"] = 4321
+        response = self.put_services(payload)
+        self.assertEqual(response.status_code, 200, response.text)
+        by_id = {item["id"]: item for item in response.json()}
+        self.assertIsNotNone(by_id["s1"]["formulaError"])
+        self.assertIsNone(by_id["s2"]["formulaError"])
+        with SessionLocal() as db:
+            s2 = db.get(Service, "s2")
+            self.assertEqual(s2.name, "Полировка стекла обновлённая")
+            self.assertEqual(s2.price, 4321)
+
+    def test_legacy_tail_formula_cannot_be_changed_to_another_tail(self) -> None:
+        from app.database import SessionLocal
+        from app.models import Service
+
+        self.reset_services()
+        self.cfg("s1", owner_split_enabled=False, piggy_pay_type="")
+        payload = self.services_payload()
+        for item in payload:
+            if item["id"] == "s1":
+                item["piggyPayType"] = "fixed"
+                item["piggyPayValue"] = 500
+            if item["id"] == "s2":
+                item["name"] = "Полировка стекла не должна сохраниться"
+                item["price"] = 9876
+        response = self.put_services(payload)
+        self.assertEqual(response.status_code, 400, response.text)
+        self.assertIn("Мойка базовая", response.json()["detail"])
+        with SessionLocal() as db:
+            s1 = db.get(Service, "s1")
+            s2 = db.get(Service, "s2")
+            self.assertEqual(s1.piggy_pay_type, "")
+            self.assertEqual(s1.piggy_pay_value, 0)
+            self.assertFalse(s1.owner_split_enabled)
+            self.assertEqual(s2.name, "Полировка стекла")
+            self.assertNotEqual(s2.price, 9876)
+
+    def test_new_service_with_tail_formula_rejected(self) -> None:
+        from app.database import SessionLocal
+        from app.models import Service
+
+        self.reset_services()
+        payload = self.services_payload()
+        new_service = dict(next(item for item in payload if item["id"] == "s2"))
+        new_service["id"] = "s-new-tail"
+        new_service["name"] = "Новая услуга с хвостом"
+        new_service["piggyPayType"] = ""
+        new_service["piggyPayValue"] = 0
+        new_service["ownerPayType"] = ""
+        new_service["ownerPayValue"] = 0
+        new_service["ownerSplitEnabled"] = False
+        payload.append(new_service)
+        response = self.put_services(payload)
+        self.assertEqual(response.status_code, 400, response.text)
+        self.assertIn("Новая услуга с хвостом", response.json()["detail"])
+        with SessionLocal() as db:
+            self.assertIsNone(db.get(Service, "s-new-tail"))
+
+    def test_legacy_tail_formula_can_be_fixed(self) -> None:
+        from app.database import SessionLocal
+        from app.models import Service
+
+        self.reset_services()
+        self.cfg("s1", owner_split_enabled=False, piggy_pay_type="")
+        payload = self.services_payload()
+        for item in payload:
+            if item["id"] == "s1":
+                item["piggyPayType"] = "rest"
+                item["piggyPayValue"] = 0
+        response = self.put_services(payload)
+        self.assertEqual(response.status_code, 200, response.text)
+        by_id = {item["id"]: item for item in response.json()}
+        self.assertIsNone(by_id["s1"]["formulaError"])
+        with SessionLocal() as db:
+            self.assertEqual(db.get(Service, "s1").piggy_pay_type, "rest")
 
     def test_owners_before_piggy_take_whole_remainder(self) -> None:
         self.reset_services()
