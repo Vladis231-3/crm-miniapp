@@ -340,6 +340,8 @@ from .schemas import (
 
     PiggyBankAdjustRequest,
 
+    PiggyBankDepositRequest,
+
     PiggyBankRepayRequest,
 
     PiggyBankSpenderDebt,
@@ -18596,6 +18598,8 @@ def get_piggy_bank(
     _BUCKET_TX_TYPES = {
         "deposit_24percent", "deposit_return", "month_return", "material_repayment",
         "adjust", "material_withdrawal", "other_withdrawal", "debt_repayment",
+        # Ручное внесение владельцем («Внести в копилку») — полноценный приход.
+        "manual_deposit",
     }
 
     def _bucket(group: str, pred: Callable[[str | None], bool]) -> float:
@@ -19817,6 +19821,77 @@ def piggy_bank_repay(
     )
 
 
+@app.post("/api/owner/piggy-bank/deposit", response_model=PiggyBankTransactionPayload)
+def piggy_bank_deposit(
+    payload: PiggyBankDepositRequest,
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> PiggyBankTransactionPayload:
+    """Внести деньги в копилку — ручное пополнение (мойка или детейлинг).
+
+    Отдельная операция «manual_deposit» в истории копилки, а не корректировка:
+    хранит примечание и дату внесения и увеличивает баланс выбранной копилки.
+    Бюджет (Income/Expense) не трогаем — это деньги, уже поступившие владельцу.
+    """
+    _ensure_staff_role(session_data, {"owner", "accountant"})
+
+    def _payload(tx: PiggyBankTransaction) -> PiggyBankTransactionPayload:
+        return PiggyBankTransactionPayload(
+            id=tx.id,
+            bookingId=tx.booking_id,
+            amount=tx.amount,
+            transactionType=tx.transaction_type,
+            purpose=tx.purpose,
+            materialName=tx.material_name,
+            materialCost=tx.material_cost,
+            date=tx.date,
+            resourceGroup=tx.resource_group,
+            createdAt=tx.created_at,
+        )
+
+    # Идемпотентность против дабл-клика (см. piggy_bank_withdraw).
+    if payload.clientRequestId:
+        existing_dep = db.scalar(
+            select(PiggyBankTransaction).where(
+                PiggyBankTransaction.request_key == payload.clientRequestId
+            )
+        )
+        if existing_dep is not None:
+            return _payload(existing_dep)
+
+    date = payload.date or _business_now().strftime("%d.%m.%Y")
+    transaction = PiggyBankTransaction(
+        id=f"pb-{uuid4()}",
+        booking_id=None,
+        amount=payload.amount,
+        transaction_type="manual_deposit",
+        purpose=payload.purpose.strip() or "Внесение в копилку",
+        material_name=None,
+        material_cost=None,
+        date=date,
+        resource_group=payload.resourceGroup,
+        request_key=payload.clientRequestId,
+        created_at=_now(),
+    )
+    db.add(transaction)
+    try:
+        db.commit()
+    except IntegrityError:
+        # Гонка двух параллельных внесений с одним ключом.
+        db.rollback()
+        if payload.clientRequestId:
+            winner_dep = db.scalar(
+                select(PiggyBankTransaction).where(
+                    PiggyBankTransaction.request_key == payload.clientRequestId
+                )
+            )
+            if winner_dep is not None:
+                return _payload(winner_dep)
+        raise
+    db.refresh(transaction)
+    return _payload(transaction)
+
+
 @app.post("/api/owner/piggy-bank/adjust", response_model=PiggyBankTransactionPayload)
 
 def piggy_bank_adjust(
@@ -20012,6 +20087,7 @@ def delete_piggy_bank_transaction(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Операция не найдена")
     if tx.transaction_type not in {
         "adjust",
+        "manual_deposit",
         "material_withdrawal",
         "other_withdrawal",
         "debt_repayment",
@@ -25811,6 +25887,7 @@ def get_owner_money_flow(
         "material_withdrawal": "piggy_withdrawal",
         "other_withdrawal": "piggy_withdrawal",
         "adjust": "piggy_adjust",
+        "manual_deposit": "piggy_manual_deposit",
         "material_repayment": "piggy_repayment",
         "debt_repayment": "piggy_debt_repayment",
         "deposit_return": "piggy_deposit_return",
@@ -25825,6 +25902,7 @@ def get_owner_money_flow(
         titles = {
             "piggy_withdrawal": "Снятие из копилки",
             "piggy_adjust": "Корректировка копилки",
+            "piggy_manual_deposit": "Внесение в копилку",
             "piggy_repayment": "Возврат материалов в копилку",
             "piggy_debt_repayment": "Возврат долга копилки человеку",
             "piggy_deposit_return": "Возврат депозитных моек в копилку",

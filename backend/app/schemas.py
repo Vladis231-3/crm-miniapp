@@ -1983,6 +1983,30 @@ class PiggyBankAdjustRequest(BaseModel):
         return stripped
 
 
+class PiggyBankDepositRequest(BaseModel):
+    """Ручное внесение денег в копилку (владелец доложил наличные/перевод).
+
+    Отдельная операция в истории (не корректировка): увеличивает баланс
+    выбранной копилки, хранит примечание и дату внесения.
+    """
+
+    # Мойка или детейлинг — общая копилка пополняется через «Изменить сумму».
+    resourceGroup: str = Field(pattern=r"^(wash|detailing)$")
+    amount: float = Field(gt=0, le=10_000_000)
+    purpose: str = ""
+    date: str = ""
+    # Идемпотентность против дабл-клика (см. PiggyBankAdjustRequest).
+    clientRequestId: str | None = Field(default=None, max_length=64)
+
+    @field_validator("date")
+    @classmethod
+    def validate_date(cls, value: str) -> str:
+        stripped = value.strip()
+        if stripped and not re.fullmatch(r"\d{2}\.\d{2}\.\d{4}", stripped):
+            raise ValueError("Дата должна быть в формате ДД.ММ.ГГГГ")
+        return stripped
+
+
 class PiggyBankRepayRequest(BaseModel):
     # Возврат долга копилки человеку (копилка возвращает долг за покупку
     # на свои деньги): деньги УХОДЯТ из копилки наружу к человеку.

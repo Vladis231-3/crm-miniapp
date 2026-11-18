@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ChevronRight, Download, Edit3, Minus, RefreshCw, Trash2, X } from 'lucide-react';
+import { ChevronRight, Download, Edit3, Minus, Plus, RefreshCw, Trash2, X } from 'lucide-react';
 import { useApp, type Booking } from '../../../context/AppContext';
 import { toast, EditAmountPencil } from '../../atmosfera';
 import { PiggyNotCountedCard, type PiggyNotCountedItem } from './PiggyNotCountedCard';
@@ -103,6 +103,7 @@ export function OwnerPiggyBankScreen({
   onExport,
   exportingKind,
   onOpenAdjust,
+  onOpenDeposit,
   onOpenWithdraw,
   onOpenArchives,
   archiveHighlight,
@@ -129,6 +130,8 @@ export function OwnerPiggyBankScreen({
   onExport: () => void;
   exportingKind: string | null;
   onOpenAdjust: (resourceGroup: 'wash' | 'detailing') => void;
+  /** Внести деньги в копилку: мойка или детейлинг (по умолчанию — текущий таб). */
+  onOpenDeposit: (resourceGroup: 'wash' | 'detailing') => void;
   onOpenWithdraw: () => void;
   onOpenArchives: () => void;
   archiveHighlight: ArchiveHighlightShape | null;
@@ -358,8 +361,11 @@ export function OwnerPiggyBankScreen({
             </div>
           </div>
 
-          {/* Withdraw button */}
+          {/* Deposit / Withdraw buttons */}
           <div className="grid grid-cols-1 gap-2 mb-4">
+            <button onClick={() => onOpenDeposit('detailing')} className="w-full py-3 rounded-xl text-white font-medium text-sm" style={{ background: primary }}>
+              <Plus size={16} strokeWidth={2} className="inline mr-1" aria-hidden />Внести в копилку
+            </button>
             <button onClick={() => onOpenWithdraw()} className="w-full py-3 rounded-xl text-white font-medium text-sm" style={{ background: 'var(--status-success)' }}>
               <Minus size={16} strokeWidth={1.75} className="inline mr-1" aria-hidden />Снять на расходы
             </button>
@@ -434,6 +440,11 @@ export function OwnerPiggyBankScreen({
               {(piggyBank.remainingInPiggyBank ?? 0) >= 0 ? '' : '−'}{Math.abs(piggyBank.remainingInPiggyBank ?? 0).toLocaleString('ru')} ₽
             </span>
           </div>
+          <div className="grid grid-cols-1 gap-2 mt-4">
+            <button onClick={() => onOpenDeposit('wash')} className="w-full py-3 rounded-xl text-white font-medium text-sm" style={{ background: primary }}>
+              <Plus size={16} strokeWidth={2} className="inline mr-1" aria-hidden />Внести в копилку
+            </button>
+          </div>
         </div>
       )}
 
@@ -494,6 +505,9 @@ export function OwnerPiggyBankScreen({
             </span>
           </div>
           <div className="grid grid-cols-1 gap-2 mt-4">
+            <button onClick={() => onOpenDeposit('detailing')} className="w-full py-3 rounded-xl text-white font-medium text-sm" style={{ background: primary }}>
+              <Plus size={16} strokeWidth={2} className="inline mr-1" aria-hidden />Внести в копилку
+            </button>
             <button onClick={() => onOpenWithdraw()} className="w-full py-3 rounded-xl text-white font-medium text-sm" style={{ background: 'var(--status-success)' }}>
               <Minus size={16} strokeWidth={1.75} className="inline mr-1" aria-hidden />Снять на расходы
             </button>
@@ -660,6 +674,7 @@ export function OwnerPiggyBankScreen({
               const isDeposit = tx.amount > 0;
               const txLabel = tx.transactionType === 'deposit_24percent' ? piggyDepositLabel((tx as { purpose?: string }).purpose)
                 : tx.transactionType === 'material_repayment' ? 'Возврат материалов'
+                : tx.transactionType === 'manual_deposit' ? 'Внесение в копилку'
                 : tx.transactionType === 'debt_repayment' ? 'Возврат долга человеку'
                 : tx.transactionType === 'material_withdrawal' ? 'Снятие на материалы'
                 : tx.transactionType === 'other_withdrawal' ? 'Снятие · прочие расходы'
@@ -679,7 +694,7 @@ export function OwnerPiggyBankScreen({
               const txRunningBalance = (tx.weeklyBalance ?? null) !== null
                 ? (tx.weeklyBalance as number)
                 : (legacyById.get(tx.id) ?? 0);
-              const canDelete = ['adjust', 'material_withdrawal', 'other_withdrawal', 'material_repayment', 'debt_repayment', 'expense'].includes(tx.transactionType);
+              const canDelete = ['adjust', 'manual_deposit', 'material_withdrawal', 'other_withdrawal', 'material_repayment', 'debt_repayment', 'expense'].includes(tx.transactionType);
               const deleteLabel = `${txLabel} ${tx.amount.toLocaleString('ru')} ₽ · ${tx.date}${tx.purpose ? ` · ${tx.purpose}` : ''}${tx.materialName ? ` · ${tx.materialName}` : ''}`;
               return (
                 <Wrapper key={tx.id} onClick={handleClick}

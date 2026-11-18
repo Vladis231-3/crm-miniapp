@@ -103,6 +103,8 @@ PIGGY_TYPE_LABELS = {
 
     "adjust": "Корректировка",
 
+    "manual_deposit": "Внесение в копилку",
+
     "expense": "Расход из копилки",
 
 }
@@ -480,9 +482,11 @@ def build_owner_summary_report(
 
         repayments = sum(t.amount for t in period_piggy if t.transaction_type == "material_repayment" and t.amount > 0)
 
+        manual_deposits = sum(t.amount for t in period_piggy if t.transaction_type == "manual_deposit" and t.amount > 0)
+
         total_balance = sum(t.amount for t in piggy_transactions)
 
-        if deposits or withdrawals or repayments or returns or debt_repays:
+        if deposits or withdrawals or repayments or returns or debt_repays or manual_deposits:
 
             lines.append("")
 
@@ -491,6 +495,10 @@ def build_owner_summary_report(
             if deposits:
 
                 lines.append(f"  24% начислено: +{_format_money(deposits)}")
+
+            if manual_deposits:
+
+                lines.append(f"  Внесено в копилку: +{_format_money(manual_deposits)}")
 
             if returns:
 
@@ -1872,11 +1880,16 @@ def build_piggy_bank_export(
         lambda t: t.transaction_type == "deposit_return" and t.amount > 0
     )
     adjustments = _period_sum(lambda t: t.transaction_type == "adjust")
+    # Ручные внесения владельца («Внести в копилку») — отдельная строка, не корректировка.
+    manual_deposits = _period_sum(
+        lambda t: t.transaction_type == "manual_deposit" and t.amount > 0
+    )
     period_delta = (
         deposits
         + repayments
         + deposit_returns
         + adjustments
+        + manual_deposits
         - material_withdrawals
         - other_withdrawals
         - debt_repays
@@ -1950,6 +1963,7 @@ def build_piggy_bank_export(
             "repayments": 0.0,
             "deposit_returns": 0.0,
             "adjustments": 0.0,
+            "manual_deposits": 0.0,
             "income": 0.0,
             "materials_out": 0.0,
             "other_out": 0.0,
@@ -1976,6 +1990,8 @@ def build_piggy_bank_export(
                 metrics["deposit_returns"] += amount
             elif tx_type == "adjust":
                 metrics["adjustments"] += amount
+            elif tx_type == "manual_deposit" and amount > 0:
+                metrics["manual_deposits"] += amount
             elif tx_type == "material_withdrawal" and amount < 0:
                 metrics["materials_out"] += -amount
             elif tx_type == "other_withdrawal" and amount < 0:
@@ -2099,6 +2115,7 @@ def build_piggy_bank_export(
         ["Возврат материалов", f"+{money(repayments)}"],
         ["Возврат депозита", f"+{money(deposit_returns)}"],
         ["Корректировки", signed(adjustments)],
+        ["Внесения в копилку вручную", signed(manual_deposits)],
         ["Сальдо периода", signed(period_delta)],
         [],
         ["— Динамика за период —", ""],

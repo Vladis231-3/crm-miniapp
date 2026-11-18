@@ -974,6 +974,11 @@ export function OwnerApp() {
   const [walletDateTo, setWalletDateTo] = useState('');
   const [showPiggyWithdraw, setShowPiggyWithdraw] = useState(false);
   const [showPiggyAdjust, setShowPiggyAdjust] = useState(false);
+  // Внести деньги в копилку (ручное пополнение мойки/детейлинга): не корректировка,
+  // а отдельная операция в истории — с примечанием и датой внесения.
+  const [showPiggyDeposit, setShowPiggyDeposit] = useState(false);
+  const [piggyDepositForm, setPiggyDepositForm] = useState<{ target: 'wash' | 'detailing'; amount: string; purpose: string; date: string }>({ target: 'detailing', amount: '', purpose: '', date: todayLabel });
+  const [piggyDepositSubmitting, setPiggyDepositSubmitting] = useState(false);
   const [piggyAdjustResourceGroup, setPiggyAdjustResourceGroup] = useState<'wash' | 'detailing' | 'general'>('wash');
   const [piggyAdjustCurrentBalance, setPiggyAdjustCurrentBalance] = useState(0);
   const [piggyAdjustForm, setPiggyAdjustForm] = useState({ newBalance: '', purpose: '', date: todayLabel });
@@ -1011,6 +1016,7 @@ export function OwnerApp() {
   const piggyWithdrawRequestIdRef = useRef(newPayRequestId());
   const [piggyAdjustSubmitting, setPiggyAdjustSubmitting] = useState(false);
   const piggyAdjustRequestIdRef = useRef(newPayRequestId());
+  const piggyDepositRequestIdRef = useRef(newPayRequestId());
   const [pendingPiggyDelete, setPendingPiggyDelete] = useState<{ id: string; label: string } | null>(null);
   const [piggyDeleting, setPiggyDeleting] = useState(false);
 
@@ -1707,6 +1713,47 @@ export function OwnerApp() {
       setTimeout(() => setBottomToast(null), 4000);
     } finally {
       setPiggyAdjustSubmitting(false);
+    }
+  }
+
+  // ── Внести в копилку (ручное пополнение мойки/детейлинга) ──
+  // Отдельная операция «Внесение в копилку» с примечанием и датой: баланс
+  // растёт прошлым числом, история и недельный остаток подхватывают её сами.
+  const openPiggyDeposit = (resourceGroup: 'wash' | 'detailing') => {
+    setPiggyDepositForm({ target: resourceGroup, amount: '', purpose: '', date: todayLabel });
+    piggyDepositRequestIdRef.current = newPayRequestId();
+    setShowPiggyDeposit(true);
+  };
+
+  async function handlePiggyDeposit() {
+    const amount = parseDecimalInput(piggyDepositForm.amount);
+    if (!Number.isFinite(amount) || amount <= 0) return;
+    if (piggyDepositSubmitting) return;
+    const target = piggyDepositForm.target;
+    setPiggyDepositSubmitting(true);
+    try {
+      await apiRequest('/api/owner/piggy-bank/deposit', {
+        method: 'POST',
+        body: {
+          resourceGroup: target,
+          amount,
+          purpose: piggyDepositForm.purpose,
+          date: piggyDepositForm.date,
+          clientRequestId: piggyDepositRequestIdRef.current,
+        },
+      });
+      setShowPiggyDeposit(false);
+      setPiggyDepositForm({ target, amount: '', purpose: '', date: todayLabel });
+      piggyDepositRequestIdRef.current = newPayRequestId();
+      await loadPiggyBank(piggyDateFrom || undefined, piggyDateTo || undefined);
+      await loadWallet(walletDateFrom || undefined, walletDateTo || undefined);
+      setBottomToast(`Внесено ${amount.toLocaleString('ru')} ₽ в копилку «${target === 'wash' ? 'Мойка' : 'Детейлинг'}»`);
+      setTimeout(() => setBottomToast(null), 3000);
+    } catch (e: unknown) {
+      setBottomToast(e instanceof Error ? e.message : 'Ошибка');
+      setTimeout(() => setBottomToast(null), 4000);
+    } finally {
+      setPiggyDepositSubmitting(false);
     }
   }
 
@@ -6186,6 +6233,7 @@ paymentSettled: false,
               onExport={handlePiggyBankExport}
               exportingKind={exportingKind}
               onOpenAdjust={openPiggyAdjust}
+              onOpenDeposit={openPiggyDeposit}
               onOpenWithdraw={openPiggyWithdraw}
               onOpenArchives={() => setShowArchivesModal(true)}
               archiveHighlight={archiveHighlight}
@@ -6672,6 +6720,7 @@ paymentSettled: false,
                   salary_adjustment: { color: '#64748B', label: 'Корректировка зарплаты' },
                   piggy_withdrawal: { color: '#94A3B8', label: 'Снятие из копилки' },
                   piggy_adjust: { color: '#94A3B8', label: 'Корректировка копилки' },
+                  piggy_manual_deposit: { color: '#94A3B8', label: 'Внесение в копилку' },
                   piggy_repayment: { color: '#94A3B8', label: 'Возврат в копилку' },
                   piggy_debt_repayment: { color: '#94A3B8', label: 'Возврат долга копилки' },
                   piggy_deposit_return: { color: '#94A3B8', label: 'Возврат моек в копилку' },
@@ -7886,6 +7935,7 @@ paymentSettled: false,
                             : tx.transactionType === 'material_repayment' ? 'Возврат материалов'
                             : tx.transactionType === 'debt_repayment' ? 'Возврат долга человеку'
                             : tx.transactionType === 'material_withdrawal' ? 'Снятие на материалы'
+                            : tx.transactionType === 'manual_deposit' ? 'Внесение в копилку'
                             : tx.transactionType === 'custom_deposit' ? 'Пополнение'
                             : tx.transactionType === 'custom_withdrawal' ? 'Снятие'
                             : 'Корректировка';
@@ -9728,6 +9778,73 @@ paymentSettled: false,
             </motion.div>
           </motion.div>
         )}
+        {/* ── PIGGY BANK DEPOSIT MODAL (внести деньги в копилку) ── */}
+        {showPiggyDeposit && (() => {
+          const depCurrent = piggyDepositForm.target === 'wash'
+            ? (piggyBank?.remainingInPiggyBank ?? 0)
+            : (piggyBank?.detailing?.netPiggy ?? 0);
+          const depAmount = isValidAmountInput(piggyDepositForm.amount) ? parseDecimalInput(piggyDepositForm.amount) : null;
+          return (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-end justify-center bg-black/50">
+              <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+                className={`${isDark ? 'bg-[#1C1C1F]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm`}>
+                <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="font-semibold">Внести в копилку</h3>
+                  <button onClick={() => setShowPiggyDeposit(false)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} strokeWidth={1.75} /></button>
+                </div>
+                <div className="space-y-3 mb-4">
+                  {/* Куда внести: мойка или детейлинг */}
+                  <div>
+                    <label className={`text-xs ${sub} block mb-1.5`}>Куда внести</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {([
+                        { value: 'wash', label: '🚗 Мойка' },
+                        { value: 'detailing', label: '✨ Детейлинг' },
+                      ] as const).map(opt => {
+                        const active = piggyDepositForm.target === opt.value;
+                        return (
+                          <button key={opt.value} type="button" onClick={() => setPiggyDepositForm(p => ({ ...p, target: opt.value }))}
+                            className={`rounded-xl py-2.5 text-sm font-medium transition-colors ${active ? '' : `${glass} ${sub}`}`}
+                            style={active ? { background: `${primary}25`, color: primary } : {}}>
+                            {opt.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <div className={`text-sm p-3 rounded-xl ${glass} flex justify-between`}>
+                    <span className={sub}>Сейчас в копилке</span>
+                    <span className="font-semibold tabular-nums" style={{ color: depCurrent >= 0 ? 'var(--status-success)' : '#FF6B6B' }}>
+                      {depCurrent.toLocaleString('ru')} ₽
+                    </span>
+                  </div>
+                  <div>
+                    <label className={`text-xs ${sub} block mb-1`}>Сумма (₽)</label>
+                    <input className={inputCls} type="text" inputMode="decimal" placeholder="0" value={piggyDepositForm.amount}
+                      onChange={e => setPiggyDepositForm(p => ({ ...p, amount: e.target.value }))} />
+                  </div>
+                  <div><label className={`text-xs ${sub} block mb-1`}>Примечание</label><input className={inputCls} placeholder="Например: доложили наличные" value={piggyDepositForm.purpose} onChange={e => setPiggyDepositForm(p => ({ ...p, purpose: e.target.value }))} /></div>
+                  <div>
+                    <label className={`text-xs ${sub} block mb-1`}>Дата внесения</label>
+                    <input className={inputCls} type="date" value={toISODate(piggyDepositForm.date)} onChange={e => {
+                      const val = parseFlexibleDate(e.target.value);
+                      setPiggyDepositForm(p => ({ ...p, date: val ? formatDate(val) : e.target.value }));
+                    }} />
+                    {piggyDepositForm.date && (!/^\d{2}\.\d{2}\.\d{4}$/.test(piggyDepositForm.date) || parseFlexibleDate(piggyDepositForm.date) === null) && (
+                      <p className="text-xs mt-1" style={{ color: '#FF6B6B' }}>Введите дату в формате ДД.ММ.ГГГГ</p>
+                    )}
+                  </div>
+                </div>
+                <button onClick={() => { void handlePiggyDeposit(); }}
+                  disabled={!isValidAmountInput(piggyDepositForm.amount) || (depAmount ?? 0) <= 0 || !piggyDepositForm.date || !/^\d{2}\.\d{2}\.\d{4}$/.test(piggyDepositForm.date) || parseFlexibleDate(piggyDepositForm.date) === null || piggyDepositSubmitting}
+                  className="w-full py-3.5 rounded-2xl font-semibold text-white disabled:opacity-50" style={{ background: primary }}>
+                  {piggyDepositSubmitting ? 'Вносим…' : `Внести${depAmount ? ` ${depAmount.toLocaleString('ru')} ₽` : ''}`}
+                </button>
+              </motion.div>
+            </motion.div>
+          );
+        })()}
         {pendingPiggyDelete && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-end justify-center bg-black/50">
             <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
