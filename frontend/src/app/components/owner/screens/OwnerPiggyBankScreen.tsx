@@ -235,9 +235,16 @@ export function OwnerPiggyBankScreen({
             {tabBalance.toLocaleString('ru')} ₽
           </div>
           {weeklyNow !== null && weeklyNow !== undefined && (
-            <div className={`text-xs ${sub} mt-2 tabular-nums`} title="Остаток на утро субботы минус расходы с субботы по сегодня. Заработок недели не учитывается.">
-              Без заработка недели{weeklyStart ? ` · на ${weeklyStart}` : ''}: <span className="font-semibold" style={{ color: weeklyNow >= 0 ? 'var(--status-success)' : 'var(--status-danger)' }}>{weeklyNow.toLocaleString('ru')} ₽</span>
-            </div>
+            <>
+              <div className={`text-xs ${sub} mt-2 tabular-nums`} title="Считается так: остаток своей копилки на утро субботы минус все расходы с субботы по сегодня. Заработок этой недели не учитывается. Поэтому после крупных закупок строка может быть отрицательной — это не баланс копилки, он считается отдельно.">
+                Без заработка недели{weeklyStart ? ` · остаток на утро ${weeklyStart}` : ''}: <span className="font-semibold" style={{ color: weeklyNow >= 0 ? 'var(--status-success)' : 'var(--status-danger)' }}>{weeklyNow.toLocaleString('ru')} ₽</span>
+              </div>
+              {weeklyNow < 0 && (
+                <div className={`text-[11px] ${sub} mt-1 leading-snug`}>
+                  Это не минус на балансе: расходы недели превысили остаток на утро субботы на {Math.abs(weeklyNow).toLocaleString('ru')} ₽. Заработок недели в этой строке не учтён.
+                </div>
+              )}
+            </>
           )}
         </div>
         );

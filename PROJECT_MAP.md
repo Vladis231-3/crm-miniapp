@@ -1,6 +1,6 @@
 # PROJECT_MAP — карта проекта
 
-> Автосгенерировано 2026-11-18 19:35 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
+> Автосгенерировано 2026-11-19 18:44 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
 
 **Обновление:**
 
@@ -13,7 +13,7 @@ python scripts/generate_project_map.py --install-hook  # git pre-commit хук (
 ## Статистика
 
 - Файлов кода: **530**
-- Строк кода: **190 375**
+- Строк кода: **190 382**
 - По расширениям: `.js`: 3, `.mjs`: 9, `.py`: 161, `.ts`: 41, `.tsx`: 316
 
 ## Архитектура
@@ -5137,7 +5137,7 @@ concept1.0/
 - `current` (стр. 728) — локальный
 - `ownerPaymentLabel` (стр. 838) — локальный
 
-### frontend/src/app/components/owner/screens/OwnerPiggyBankScreen.tsx (813 строк)
+### frontend/src/app/components/owner/screens/OwnerPiggyBankScreen.tsx (820 строк)
 
 - `piggyDepositLabel` (стр. 22) — локальный
 - `p` (стр. 23) — локальный
@@ -5148,21 +5148,21 @@ concept1.0/
 - `tabLabel` (стр. 206) — локальный
 - `weeklyNow` (стр. 210) — локальный
 - `weeklyStart` (стр. 214) — локальный
-- `rem` (стр. 268) — локальный
-- `otherWd` (стр. 475) — локальный
-- `debtTxs` (стр. 585) — локальный
-- `total` (стр. 589) — локальный
-- `isOther` (стр. 615) — локальный
-- `filteredTxs` (стр. 657) — локальный
-- `legacyById` (стр. 666) — локальный
-- `isDeposit` (стр. 674) — локальный
-- `txLabel` (стр. 675) — локальный
-- `booking` (стр. 683) — локальный
-- `handleClick` (стр. 684) — локальный
-- `Wrapper` (стр. 691) — локальный
-- `txRunningBalance` (стр. 694) — локальный
-- `canDelete` (стр. 697) — локальный
-- `deleteLabel` (стр. 698) — локальный
+- `rem` (стр. 275) — локальный
+- `otherWd` (стр. 482) — локальный
+- `debtTxs` (стр. 592) — локальный
+- `total` (стр. 596) — локальный
+- `isOther` (стр. 622) — локальный
+- `filteredTxs` (стр. 664) — локальный
+- `legacyById` (стр. 673) — локальный
+- `isDeposit` (стр. 681) — локальный
+- `txLabel` (стр. 682) — локальный
+- `booking` (стр. 690) — локальный
+- `handleClick` (стр. 691) — локальный
+- `Wrapper` (стр. 698) — локальный
+- `txRunningBalance` (стр. 701) — локальный
+- `canDelete` (стр. 704) — локальный
+- `deleteLabel` (стр. 705) — локальный
 
 ### frontend/src/app/components/owner/screens/OwnerStockPage.tsx (364 строк)
 
@@ -6167,9 +6167,9 @@ concept1.0/
 
 ## Недавно изменённые файлы
 
+- `frontend/src/app/components/owner/screens/OwnerPiggyBankScreen.tsx` (2026-11-19 21:41)
 - `backend/tests/test_piggy_bank_deposit.py` (2026-11-18 22:34)
 - `frontend/src/app/components/owner/OwnerApp.tsx` (2026-11-18 22:33)
-- `frontend/src/app/components/owner/screens/OwnerPiggyBankScreen.tsx` (2026-11-18 22:16)
 - `backend/app/exports.py` (2026-11-18 22:13)
 - `backend/app/main.py` (2026-11-18 22:09)
 - `backend/app/schemas.py` (2026-11-18 22:07)
