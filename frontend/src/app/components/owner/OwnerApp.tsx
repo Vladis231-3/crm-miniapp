@@ -1055,10 +1055,7 @@ export function OwnerApp() {
   const [createClientForm, setCreateClientForm] = useState({ name: '', phone: '', car: '', plate: '', plateType: 'russian' as PlateType, notes: '', referralSource: '' });
   const [selectedSalaryWorkerId, setSelectedSalaryWorkerId] = useState<string | null>(null);
   const [salaryWorkerSearch, setSalaryWorkerSearch] = useState('');
-  const [salaryPeriod, setSalaryPeriod] = useState<'day' | 'week' | 'month' | 'all' | 'custom'>('month');
   const [salarySegment, setSalarySegment] = useState<'all' | 'wash' | 'detailing'>('all');
-  const [salaryDateFrom, setSalaryDateFrom] = useState('');
-  const [salaryDateTo, setSalaryDateTo] = useState('');
   const [salaryDetail, setSalaryDetail] = useState<SalaryDetailResponse | null>(null);
   const [salaryBookingDetail, setSalaryBookingDetail] = useState<SalaryBookingItem | null>(null);
   /** Кликабельные плитки сводки в salary-detail: какая расшифровка открыта. */
@@ -1474,7 +1471,7 @@ export function OwnerApp() {
   }, [workers]);
   useEffect(() => {
     if (!selectedSalaryWorkerId) { setSalaryDetail(null); setSalaryError(null); setSalaryHistoryFilter('all'); return; }
-    if (salaryPeriod === 'custom' && (!salaryDateFrom || !salaryDateTo)) {
+    if (payrollPeriod === 'custom' && (!payrollDateFrom || !payrollDateTo)) {
       setSalaryDetail(null);
       setSalaryLoading(false);
       return;
@@ -1485,16 +1482,16 @@ export function OwnerApp() {
     // so the detail view never stays in edit mode after period/segment changes.
     setEditingOverrideLinkId(null);
     setEditingOverrideValue('');
-    const params = new URLSearchParams({ period: salaryPeriod, segment: salarySegment });
-    if (salaryPeriod === 'custom') {
-      params.set('date_from', salaryDateFrom);
-      params.set('date_to', salaryDateTo);
+    const params = new URLSearchParams({ period: payrollPeriod, segment: salarySegment });
+    if (payrollPeriod === 'custom') {
+      params.set('date_from', payrollDateFrom);
+      params.set('date_to', payrollDateTo);
     }
     apiRequest<SalaryDetailResponse>(`/api/owner/workers/${selectedSalaryWorkerId}/salary-detail?${params.toString()}`)
       .then(setSalaryDetail)
       .catch(e => { console.error('salary-detail error:', e); setSalaryError(e?.message || 'Ошибка загрузки данных'); setSalaryDetail(null); })
       .finally(() => setSalaryLoading(false));
-  }, [selectedSalaryWorkerId, salaryPeriod, salarySegment, salaryDateFrom, salaryDateTo]);
+  }, [selectedSalaryWorkerId, payrollPeriod, salarySegment, payrollDateFrom, payrollDateTo]);
   useEffect(() => setNotifSettings(settings.ownerNotificationSettings), [settings.ownerNotificationSettings]);
   useEffect(() => setIntegrations(settings.ownerIntegrations), [settings.ownerIntegrations]);
   useEffect(() => setTwoFactor(settings.ownerSecurity.twoFactor), [settings.ownerSecurity.twoFactor]);
@@ -2634,9 +2631,9 @@ export function OwnerApp() {
     setPage('salary-detail');
     setSettingsSection(null);
     setSelectedSalaryWorkerId(workerId);
-    setSalaryPeriod(dateFrom ? 'custom' : 'all');
-    setSalaryDateFrom(dateFrom);
-    setSalaryDateTo(dateTo);
+    setPayrollPeriod(dateFrom ? 'custom' : 'all');
+    setPayrollDateFrom(dateFrom);
+    setPayrollDateTo(dateTo);
     setSalarySegment('all');
     setEditingOverrideLinkId(null);
     setEditingOverrideValue('');
@@ -3288,17 +3285,17 @@ export function OwnerApp() {
 
   const refreshSalaryDetail = () => {
     if (!selectedSalaryWorkerId) return;
-    if (salaryPeriod === 'custom' && (!salaryDateFrom || !salaryDateTo)) return;
+    if (payrollPeriod === 'custom' && (!payrollDateFrom || !payrollDateTo)) return;
     // Close any open override-earned editor whenever salary data is (re)loaded,
     // so the detail view never stays in edit mode after period/segment changes.
     setEditingOverrideLinkId(null);
     setEditingOverrideValue('');
     setSalaryLoading(true);
     setSalaryError(null);
-    const params = new URLSearchParams({ period: salaryPeriod, segment: salarySegment });
-    if (salaryPeriod === 'custom') {
-      params.set('date_from', salaryDateFrom);
-      params.set('date_to', salaryDateTo);
+    const params = new URLSearchParams({ period: payrollPeriod, segment: salarySegment });
+    if (payrollPeriod === 'custom') {
+      params.set('date_from', payrollDateFrom);
+      params.set('date_to', payrollDateTo);
     }
     apiRequest<SalaryDetailResponse>(`/api/owner/workers/${selectedSalaryWorkerId}/salary-detail?${params.toString()}`)
       .then(setSalaryDetail)
@@ -3375,9 +3372,9 @@ export function OwnerApp() {
         kind: 'bonus',
         amount: Math.round(amount),
         note: bonusNote.trim() || 'Премия',
-        period: salaryPeriod,
+        period: payrollPeriod,
         clientRequestId: entryRequestIdRef.current,
-        ...(salaryPeriod === 'custom' ? { dateFrom: salaryDateFrom, dateTo: salaryDateTo } : {}),
+        ...(payrollPeriod === 'custom' ? { dateFrom: payrollDateFrom, dateTo: payrollDateTo } : {}),
       });
       entryRequestIdRef.current = newPayRequestId();
       setBonusAmount('');
@@ -3405,9 +3402,9 @@ export function OwnerApp() {
         kind: 'fine',
         amount: Math.round(amount),
         note: fineNote.trim() || 'Штраф',
-        period: salaryPeriod,
+        period: payrollPeriod,
         clientRequestId: entryRequestIdRef.current,
-        ...(salaryPeriod === 'custom' ? { dateFrom: salaryDateFrom, dateTo: salaryDateTo } : {}),
+        ...(payrollPeriod === 'custom' ? { dateFrom: payrollDateFrom, dateTo: payrollDateTo } : {}),
       });
       entryRequestIdRef.current = newPayRequestId();
       setFineAmount('');
@@ -3445,9 +3442,9 @@ export function OwnerApp() {
         kind: 'deduction',
         amount: Math.round(amount),
         note: writeOffNoteToSend,
-        period: salaryPeriod,
+        period: payrollPeriod,
         clientRequestId: entryRequestIdRef.current,
-        ...(salaryPeriod === 'custom' ? { dateFrom: salaryDateFrom, dateTo: salaryDateTo } : {}),
+        ...(payrollPeriod === 'custom' ? { dateFrom: payrollDateFrom, dateTo: payrollDateTo } : {}),
       });
       entryRequestIdRef.current = newPayRequestId();
       setWriteOffAmount('');
@@ -5217,9 +5214,6 @@ paymentSettled: false,
                     type="button"
                     onClick={() => {
                       setSelectedSalaryWorkerId(worker.id);
-                      setSalaryPeriod('month');
-                      setSalaryDateFrom('');
-                      setSalaryDateTo('');
                       setSalaryDetail(null);
                       setSalaryError(null);
                       setSalaryLoading(true);
@@ -5240,9 +5234,6 @@ paymentSettled: false,
                       <div className="font-bold underline decoration-dotted underline-offset-2 flex items-center gap-1.5 justify-end" style={{ color: accent }}>{(payrollSummary?.balance || 0).toLocaleString('ru')} ₽
                         <EditAmountPencil primary={primary} size={11} title="Изменить сумму — открыть зарплату мастера" onClick={() => {
                           setSelectedSalaryWorkerId(worker.id);
-                          setSalaryPeriod('month');
-                          setSalaryDateFrom('');
-                          setSalaryDateTo('');
                           setSalaryDetail(null);
                           setSalaryError(null);
                           setSalaryLoading(true);
@@ -5258,9 +5249,6 @@ paymentSettled: false,
                     <button
                       onClick={() => {
                         setSelectedSalaryWorkerId(worker.id);
-                        setSalaryPeriod('month');
-                        setSalaryDateFrom('');
-                        setSalaryDateTo('');
                         setSalaryDetail(null);
                         setSalaryError(null);
                         setSalaryLoading(true);
@@ -5277,9 +5265,6 @@ paymentSettled: false,
                   <div className="grid grid-cols-2 gap-2 mb-3">
                     <button type="button" onClick={() => {
                       setSelectedSalaryWorkerId(worker.id);
-                      setSalaryPeriod('month');
-                      setSalaryDateFrom('');
-                      setSalaryDateTo('');
                       setSalaryDetail(null);
                       setSalaryError(null);
                       setSalaryLoading(true);
@@ -5307,9 +5292,6 @@ paymentSettled: false,
                   <div className="grid grid-cols-2 gap-2 mb-3">
                     <button type="button" onClick={() => {
                       setSelectedSalaryWorkerId(worker.id);
-                      setSalaryPeriod('month');
-                      setSalaryDateFrom('');
-                      setSalaryDateTo('');
                       setSalaryDetail(null);
                       setSalaryError(null);
                       setSalaryLoading(true);
@@ -5329,9 +5311,6 @@ paymentSettled: false,
                     </button>
                     <button type="button" onClick={() => {
                       setSelectedSalaryWorkerId(worker.id);
-                      setSalaryPeriod('month');
-                      setSalaryDateFrom('');
-                      setSalaryDateTo('');
                       setSalaryDetail(null);
                       setSalaryError(null);
                       setSalaryLoading(true);
@@ -5569,7 +5548,7 @@ paymentSettled: false,
                                 <div className={`text-[11px] ${sub} mt-1`}>{ps?.completedBookings || 0} заказов · {linked.complaintState.activeCount} жалоб</div>
                               </div>
                             </div>
-                            <button onClick={() => { setSelectedSalaryWorkerId(linked.worker.id); setSalaryPeriod('month'); setSalaryDateFrom(''); setSalaryDateTo(''); setSalaryDetail(null); setSalaryError(null); setSalaryLoading(true); setEditingOverrideLinkId(null); setEditingOverrideValue(''); setSalaryBreakdown(null); setPage('salary-detail'); }} className="w-full rounded-xl border px-3 py-2 text-sm font-medium mb-2" style={{ borderColor: `${primary}33`, color: primary, background: isDark ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.7)' }}>Открыть зарплату мастера  -  детали, премии, штрафы</button>
+                            <button onClick={() => { setSelectedSalaryWorkerId(linked.worker.id); setSalaryDetail(null); setSalaryError(null); setSalaryLoading(true); setEditingOverrideLinkId(null); setEditingOverrideValue(''); setSalaryBreakdown(null); setPage('salary-detail'); }} className="w-full rounded-xl border px-3 py-2 text-sm font-medium mb-2" style={{ borderColor: `${primary}33`, color: primary, background: isDark ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.7)' }}>Открыть зарплату мастера  -  детали, премии, штрафы</button>
                           </div>
                         );
                       })()}
@@ -5721,9 +5700,9 @@ paymentSettled: false,
                   {/* Period toggles */}
                   <div className="flex gap-1 rounded-xl p-1 mb-2" style={segTrack}>
                     {(['day', 'week', 'month', 'all', 'custom'] as const).map(p => (
-                      <button key={p} onClick={() => { setSalaryBreakdown(null); setSalaryPeriod(p); }} aria-pressed={salaryPeriod === p}
-                        className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] ${salaryPeriod === p ? '' : sub}`}
-                        style={salaryPeriod === p ? { background: primary, color: '#fff', boxShadow: '0 1px 2px rgba(0,0,0,0.2)' } : undefined}>
+                      <button key={p} onClick={() => { setSalaryBreakdown(null); setPayrollPeriod(p); }} aria-pressed={payrollPeriod === p}
+                        className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] ${payrollPeriod === p ? '' : sub}`}
+                        style={payrollPeriod === p ? { background: primary, color: '#fff', boxShadow: '0 1px 2px rgba(0,0,0,0.2)' } : undefined}>
                         {p === 'day' ? 'День' : p === 'week' ? 'Неделя' : p === 'month' ? 'Месяц' : p === 'all' ? 'Всё' : 'Своё'}
                       </button>
                     ))}
@@ -5738,16 +5717,16 @@ paymentSettled: false,
                       </button>
                     ))}
                   </div>
-                  {salaryPeriod === 'custom' && (
+                  {payrollPeriod === 'custom' && (
                     <div className="flex gap-2 mt-3">
                       <div className="flex-1">
                         <label className={`text-[11px] ${sub} block mb-1`}>От</label>
-                        <input type="date" value={salaryDateFrom} onChange={(e) => { setSalaryBreakdown(null); setSalaryDateFrom(e.target.value); }}
+                        <input type="date" value={payrollDateFrom} onChange={(e) => { setSalaryBreakdown(null); setPayrollDateFrom(e.target.value); }}
                           className={`w-full ${inputCls} rounded-xl px-3 py-2 text-sm`} />
                       </div>
                       <div className="flex-1">
                         <label className={`text-[11px] ${sub} block mb-1`}>До</label>
-                        <input type="date" value={salaryDateTo} onChange={(e) => { setSalaryBreakdown(null); setSalaryDateTo(e.target.value); }}
+                        <input type="date" value={payrollDateTo} onChange={(e) => { setSalaryBreakdown(null); setPayrollDateTo(e.target.value); }}
                           className={`w-full ${inputCls} rounded-xl px-3 py-2 text-sm`} />
                       </div>
                     </div>
@@ -5954,17 +5933,17 @@ paymentSettled: false,
                         }
                         setSalaryLoading(true);
                         try {
-                          const periodLabel = salaryPeriod === 'day' ? 'день' : salaryPeriod === 'week' ? 'неделю' : salaryPeriod === 'month' ? 'месяц' : salaryPeriod === 'custom' ? 'выбранный период' : 'весь период';
+                          const periodLabel = payrollPeriod === 'day' ? 'день' : payrollPeriod === 'week' ? 'неделю' : payrollPeriod === 'month' ? 'месяц' : payrollPeriod === 'custom' ? 'выбранный период' : 'весь период';
                           await apiRequest<{ message: string; payoutId: string; newBalance: number; expenseId: string }>(
                             `/api/owner/workers/${selectedSalaryWorkerId}/pay-salary`, {
                             method: 'POST',
                             body: {
-                              period: salaryPeriod,
+                              period: payrollPeriod,
                               segment: salarySegment,
                               amount: Math.round(amount),
                               note: salaryPayNote.trim() || `Выплата за ${periodLabel}`,
                               clientRequestId: salaryPayRequestId,
-                              ...(salaryPeriod === 'custom' ? { dateFrom: salaryDateFrom, dateTo: salaryDateTo } : {}),
+                              ...(payrollPeriod === 'custom' ? { dateFrom: payrollDateFrom, dateTo: payrollDateTo } : {}),
                             },
                           });
                           setSalaryPayAmount('');
