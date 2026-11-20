@@ -1,6 +1,6 @@
 # PROJECT_MAP — карта проекта
 
-> Автосгенерировано 2026-11-19 18:44 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
+> Автосгенерировано 2026-11-20 06:16 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
 
 **Обновление:**
 
@@ -13,7 +13,7 @@ python scripts/generate_project_map.py --install-hook  # git pre-commit хук (
 ## Статистика
 
 - Файлов кода: **530**
-- Строк кода: **190 382**
+- Строк кода: **190 423**
 - По расширениям: `.js`: 3, `.mjs`: 9, `.py`: 161, `.ts`: 41, `.tsx`: 316
 
 ## Архитектура
@@ -5223,27 +5223,32 @@ concept1.0/
 
 - `OwnerWalletScreen` (стр. 36)
 
-### frontend/src/app/components/owner/screens/PiggyNotCountedCard.tsx (166 строк)
+### frontend/src/app/components/owner/screens/PiggyNotCountedCard.tsx (207 строк)
 
 - `COLLAPSED_ROWS` (стр. 45) — локальный
 - `shortDate` (стр. 47) — локальный
 - `rub` (стр. 48) — локальный
-- `PiggyNotCountedCard` (стр. 55)
-- `missing` (стр. 75) — локальный
-- `divider` (стр. 78) — локальный
-- `rowBg` (стр. 79) — локальный
-- `open` (стр. 81) — локальный
-- `booking` (стр. 83) — локальный
-- `rows` (стр. 101) — локальный
-- `total` (стр. 103) — локальный
-- `adjustDates` (стр. 104) — локальный
-- `title` (стр. 105) — локальный
-- `isOpen` (стр. 108) — локальный
-- `visible` (стр. 109) — локальный
-- `signed` (стр. 110) — локальный
-- `clickable` (стр. 119) — локальный
-- `Wrapper` (стр. 120) — локальный
-- `label` (стр. 121) — локальный
+- `recordsWord` (стр. 51) — локальный
+- `mod100` (стр. 52) — локальный
+- `mod10` (стр. 53) — локальный
+- `PiggyNotCountedCard` (стр. 65)
+- `collapsible` (стр. 86) — локальный
+- `isOpen` (стр. 87) — локальный
+- `missing` (стр. 88) — локальный
+- `divider` (стр. 91) — локальный
+- `rowBg` (стр. 92) — локальный
+- `open` (стр. 94) — локальный
+- `booking` (стр. 96) — локальный
+- `rows` (стр. 140) — локальный
+- `total` (стр. 142) — локальный
+- `adjustDates` (стр. 143) — локальный
+- `title` (стр. 144) — локальный
+- `sectionOpen` (стр. 147) — локальный
+- `visible` (стр. 148) — локальный
+- `signed` (стр. 149) — локальный
+- `clickable` (стр. 158) — локальный
+- `Wrapper` (стр. 159) — локальный
+- `label` (стр. 160) — локальный
 
 ### frontend/src/app/components/shared/Atmosfera.tsx (7 строк)
 
@@ -6167,6 +6172,7 @@ concept1.0/
 
 ## Недавно изменённые файлы
 
+- `frontend/src/app/components/owner/screens/PiggyNotCountedCard.tsx` (2026-11-19 21:47)
 - `frontend/src/app/components/owner/screens/OwnerPiggyBankScreen.tsx` (2026-11-19 21:41)
 - `backend/tests/test_piggy_bank_deposit.py` (2026-11-18 22:34)
 - `frontend/src/app/components/owner/OwnerApp.tsx` (2026-11-18 22:33)
@@ -6181,4 +6187,3 @@ concept1.0/
 - `backend/tests/test_money_matrix.py` (2026-11-13 20:26)
 - `backend/tests/test_deposit.py` (2026-11-13 20:25)
 - `backend/app/config.py` (2026-11-13 20:03)
-- `backend/tests/test_booking_money_split.py` (2026-11-13 19:17)
