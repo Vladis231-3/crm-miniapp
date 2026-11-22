@@ -173,6 +173,8 @@ from .models import (
 
     PiggyBankTransaction,
 
+    PiggyCashCount,
+
     ScheduleEntry,
 
     Service,
@@ -339,6 +341,8 @@ from .schemas import (
     PiggyBankResponse,
 
     PiggyBankAdjustRequest,
+
+    PiggyCashCountRequest,
 
     PiggyBankDepositRequest,
 
@@ -19051,6 +19055,389 @@ def get_piggy_bank(
 
 
 
+
+
+# === Сверка копилки по дням: расчётный остаток vs факт кассы ===
+#
+# Владелец вечером считает наличные в ящике и вносит факт. Карточка показывает
+# по каждому дню вклады/снятия/корректировки, остаток на конец дня и разницу
+# «факт − расчёт», чтобы расхождение (как перекос чека 3772 на 5 850 ₽) было
+# видно в тот же день, а не только на общей сверке в конце месяца.
+
+PIGGY_BUCKET_TX_TYPES = frozenset({
+    "deposit_24percent",
+    "deposit_return",
+    "month_return",
+    "material_repayment",
+    "adjust",
+    "material_withdrawal",
+    "other_withdrawal",
+    "debt_repayment",
+    "manual_deposit",
+})
+PIGGY_CASH_COUNT_GROUPS = ("wash", "detailing")
+PIGGY_DAILY_MAX_DAYS = 92
+
+
+def _piggy_daily_zero() -> dict[str, float]:
+    return {
+        "deposits": 0.0,
+        "withdrawals": 0.0,
+        "adjust": 0.0,
+        "expenses": 0.0,
+        "incomes": 0.0,
+        "count": 0,
+        "backdated": 0,
+    }
+
+
+def _piggy_tx_local_date(created_at: datetime | None) -> date | None:
+    """Локальная дата создания проводки (для отметки «внесено задним числом»)."""
+
+    if created_at is None:
+        return None
+    try:
+        if created_at.tzinfo is None:
+            return created_at.date()
+        return created_at.astimezone(_business_tz()).date()
+    except Exception:  # noqa: BLE001 — битая дата не должна ломать отчёт
+        return None
+
+
+def _piggy_daily_aggregates(
+    db: Session, groups: list[str]
+) -> tuple[dict[str, dict[date, dict[str, float]]], dict[str, float]]:
+    """Разложить движения копилки по (группа, день) теми же правилами, что и карточка.
+
+    Баланс = живые проводки bucket-типов − обычные расходы + обычные доходы
+    (ЗП-связки, пары снятий и материалы записей исключены — как в get_piggy_bank).
+    Возвращает агрегаты по дням и остаток «до отчёта» (все дни левее периода).
+    """
+
+    live_tx = _live_piggy_transactions(db)
+    pair_expense_ids = {
+        str(t.expense_id)
+        for t in live_tx
+        if getattr(t, "expense_id", None) and t.transaction_type != "expense"
+    }
+    payroll_rows = db.scalars(
+        select(PayrollEntry).where(PayrollEntry.deleted_at.is_(None))
+    ).all()
+    payroll_expense_ids = {str(r.expense_id) for r in payroll_rows if r.expense_id}
+    payroll_income_ids = {str(r.income_id) for r in payroll_rows if r.income_id}
+
+    per_day: dict[str, dict[date, dict[str, float]]] = {g: {} for g in groups}
+
+    def _row(group: str, day: date) -> dict[str, float]:
+        return per_day[group].setdefault(day, _piggy_daily_zero())
+
+    for t in live_tx:
+        group = (t.resource_group or "").strip()
+        if group not in per_day or t.transaction_type not in PIGGY_BUCKET_TX_TYPES:
+            continue
+        try:
+            day = parse_dmy(t.date or "")
+        except (TypeError, ValueError):
+            continue
+        row = _row(group, day)
+        amount = float(t.amount or 0)
+        if t.transaction_type == "adjust":
+            row["adjust"] += amount
+        elif amount >= 0:
+            row["deposits"] += amount
+        else:
+            row["withdrawals"] += amount
+        row["count"] += 1
+        created_day = _piggy_tx_local_date(t.created_at)
+        if created_day is not None and created_day > day:
+            row["backdated"] += 1
+
+    expenses = db.scalars(select(Expense).where(Expense.deleted_at.is_(None))).all()
+    for e in expenses:
+        group = (e.resource_group or "").strip()
+        if group not in per_day:
+            continue
+        if (
+            str(e.id) in payroll_expense_ids
+            or str(e.id) in pair_expense_ids
+            or (e.category or "") == "Зарплата"
+            or e.booking_id
+        ):
+            continue
+        try:
+            day = parse_dmy(e.date or "")
+        except (TypeError, ValueError):
+            continue
+        _row(group, day)["expenses"] += float(e.amount or 0)
+
+    incomes = db.scalars(select(Income).where(Income.deleted_at.is_(None))).all()
+    for i in incomes:
+        group = (i.resource_group or "").strip()
+        if group not in per_day or str(i.id) in payroll_income_ids:
+            continue
+        try:
+            day = parse_dmy(i.date or "")
+        except (TypeError, ValueError):
+            continue
+        _row(group, day)["incomes"] += float(i.amount or 0)
+
+    return per_day
+
+
+def _piggy_day_net(row: dict[str, float]) -> float:
+    return round(
+        row["deposits"] + row["withdrawals"] + row["adjust"] - row["expenses"] + row["incomes"],
+        2,
+    )
+
+
+@app.get("/api/owner/piggy-bank/daily")
+def get_piggy_bank_daily(
+    date_from: str | None = None,
+    date_to: str | None = None,
+    resource_group: str = "all",
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Расчётный остаток копилки по дням + сравнение с фактом кассы.
+
+    Для каждого дня: вклады, снятия, корректировки, обычные расходы/доходы,
+    остаток на конец дня и разница «факт − расчёт» (если владелец внёс факт).
+    Даты с движением денег помечаются, если проводка внесена задним числом.
+    """
+
+    _ensure_staff_role(session_data, {"owner", "accountant"})
+
+    group = (resource_group or "all").strip().lower()
+    if group not in ("all", *PIGGY_CASH_COUNT_GROUPS):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="resource_group: all, wash или detailing",
+        )
+    groups = list(PIGGY_CASH_COUNT_GROUPS) if group == "all" else [group]
+
+    try:
+        parsed_to = parse_date_param(date_to) if date_to else _local_today()
+        parsed_from = (
+            parse_date_param(date_from) if date_from else parsed_to - timedelta(days=13)
+        )
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Даты в формате DD.MM.YYYY",
+        ) from None
+    if parsed_from > parsed_to:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Дата начала позже даты конца",
+        )
+    if (parsed_to - parsed_from).days + 1 > PIGGY_DAILY_MAX_DAYS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Максимум {PIGGY_DAILY_MAX_DAYS} дней за раз",
+        )
+
+    per_day = _piggy_daily_aggregates(db, groups)
+
+    opening: dict[str, float] = {}
+    for g in groups:
+        opening[g] = round(
+            sum(_piggy_day_net(row) for day, row in per_day[g].items() if day < parsed_from),
+            2,
+        )
+
+    facts: dict[tuple[date, str], tuple[float, str]] = {}
+    for count in db.scalars(
+        select(PiggyCashCount).where(PiggyCashCount.resource_group.in_(groups))
+    ).all():
+        try:
+            count_day = parse_dmy(count.date or "")
+        except (TypeError, ValueError):
+            continue
+        if parsed_from <= count_day <= parsed_to:
+            facts[(count_day, count.resource_group)] = (
+                float(count.amount or 0),
+                count.note or "",
+            )
+
+    day_keys: set[date] = set()
+    for g in groups:
+        day_keys.update(per_day[g].keys())
+    day_keys.update(day for day, _g in facts)
+    day_keys = {d for d in day_keys if parsed_from <= d <= parsed_to}
+
+    running = {g: opening[g] for g in groups}
+    days: list[dict] = []
+    for day in sorted(day_keys):
+        entry: dict = {
+            "date": day.strftime("%d.%m.%Y"),
+            "isoDate": day.isoformat(),
+            "groups": {},
+            "facts": {},
+            "diffs": {},
+            "hasBackdated": False,
+        }
+        total_net = 0.0
+        for g in groups:
+            row = per_day[g].get(day) or _piggy_daily_zero()
+            net = _piggy_day_net(row)
+            running[g] = round(running[g] + net, 2)
+            entry["groups"][g] = {
+                "deposits": round(row["deposits"], 2),
+                "withdrawals": round(row["withdrawals"], 2),
+                "adjust": round(row["adjust"], 2),
+                "expenses": round(row["expenses"], 2),
+                "incomes": round(row["incomes"], 2),
+                "count": int(row["count"]),
+                "net": net,
+                "closing": running[g],
+            }
+            fact = facts.get((day, g))
+            entry["facts"][g] = fact[0] if fact else None
+            entry["diffs"][g] = round(fact[0] - running[g], 2) if fact else None
+            if fact and fact[1]:
+                entry[f"note_{g}"] = fact[1]
+            if row["backdated"]:
+                entry["hasBackdated"] = True
+            total_net += net
+        entry["total"] = {
+            "net": round(total_net, 2),
+            "closing": round(sum(running.values()), 2),
+        }
+        days.append(entry)
+    days.reverse()
+
+    recorded = {
+        g: sum(1 for (d, gg) in facts if gg == g) for g in groups
+    }
+    unexplained = {
+        g: round(
+            sum(
+                float(entry["diffs"][g] or 0)
+                for entry in days
+                if entry["diffs"].get(g) is not None
+            ),
+            2,
+        )
+        for g in groups
+    }
+
+    return {
+        "dateFrom": parsed_from.strftime("%d.%m.%Y"),
+        "dateTo": parsed_to.strftime("%d.%m.%Y"),
+        "groups": groups,
+        "opening": {**opening, "total": round(sum(opening.values()), 2)},
+        "closing": {**running, "total": round(sum(running.values()), 2)},
+        "days": days,
+        "recorded": recorded,
+        "unexplained": unexplained,
+    }
+
+
+@app.put("/api/owner/piggy-bank/cash-count")
+def put_piggy_cash_count(
+    payload: PiggyCashCountRequest,
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Внести/обновить факт кассы копилки на конец дня (одна запись на день+копилку)."""
+
+    _ensure_staff_role(session_data, {"owner", "accountant"})
+
+    group = (payload.resourceGroup or "").strip().lower()
+    if group not in PIGGY_CASH_COUNT_GROUPS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Копилка: wash или detailing",
+        )
+    try:
+        parsed = parse_dmy(payload.date)
+    except (TypeError, ValueError):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Дата в формате DD.MM.YYYY",
+        ) from None
+    if parsed > _local_today():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Нельзя внести факт на будущую дату",
+        )
+
+    day = parsed.strftime("%d.%m.%Y")
+    amount = round(float(payload.amount or 0), 2)
+    note = (payload.note or "").strip()[:255]
+    actor_id = str(session_data.get("actorId") or "") or None
+
+    record = db.scalar(
+        select(PiggyCashCount).where(
+            PiggyCashCount.date == day,
+            PiggyCashCount.resource_group == group,
+        )
+    )
+    if record is None:
+        record = PiggyCashCount(
+            id=f"pcc-{uuid4()}",
+            date=day,
+            resource_group=group,
+            amount=amount,
+            note=note,
+            created_by_id=actor_id,
+            created_at=_now(),
+            updated_at=_now(),
+        )
+        db.add(record)
+    else:
+        record.amount = amount
+        record.note = note
+        record.updated_at = _now()
+    db.commit()
+    db.refresh(record)
+
+    return {
+        "id": record.id,
+        "date": record.date,
+        "resourceGroup": record.resource_group,
+        "amount": float(record.amount or 0),
+        "note": record.note or "",
+        "updatedAt": record.updated_at,
+    }
+
+
+@app.delete("/api/owner/piggy-bank/cash-count")
+def delete_piggy_cash_count(
+    date_value: str = Query(alias="date"),
+    resource_group: str = Query(alias="resource_group"),
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Убрать факт кассы (ошибочный ввод)."""
+
+    _ensure_staff_role(session_data, {"owner", "accountant"})
+
+    group = (resource_group or "").strip().lower()
+    if group not in PIGGY_CASH_COUNT_GROUPS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Копилка: wash или detailing",
+        )
+    try:
+        parsed = parse_dmy(date_value)
+    except (TypeError, ValueError):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Дата в формате DD.MM.YYYY",
+        ) from None
+
+    record = db.scalar(
+        select(PiggyCashCount).where(
+            PiggyCashCount.date == parsed.strftime("%d.%m.%Y"),
+            PiggyCashCount.resource_group == group,
+        )
+    )
+    if record is not None:
+        db.delete(record)
+        db.commit()
+    return {"ok": True}
 
 
 @app.post("/api/owner/piggy-bank/withdraw", response_model=PiggyBankTransactionPayload)

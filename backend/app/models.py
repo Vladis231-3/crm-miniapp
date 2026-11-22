@@ -16,6 +16,7 @@ from sqlalchemy import (
     Numeric,
     String,
     Text,
+    UniqueConstraint,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -882,4 +883,33 @@ class Outbox(Base):
     last_error: Mapped[str] = mapped_column(String(500), default="")
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utc_now
+    )
+
+
+class PiggyCashCount(Base):
+    """Фактический остаток кассы копилки на конец дня.
+
+    Владелец вечером считает наличные в ящике мойки/детейлинга и вносит сумму;
+    карточка «Сверка по дням» сравнивает её с расчётным остатком копилки на эту
+    дату и сразу показывает расхождение. Одна запись на пару (дата, копилка) —
+    повторное сохранение обновляет факт, а не плодит дубли.
+    """
+
+    __tablename__ = "piggy_cash_counts"
+    __table_args__ = (
+        UniqueConstraint("date", "resource_group", name="ux_piggy_cash_count"),
+        Index("ix_piggy_cash_count_date", "date"),
+    )
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    date: Mapped[str] = mapped_column(String(16))
+    resource_group: Mapped[str] = mapped_column(String(64))
+    amount: Mapped[Decimal] = mapped_column(Numeric(18, 2))
+    note: Mapped[str] = mapped_column(String(255), default="")
+    created_by_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, onupdate=utc_now
     )

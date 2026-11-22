@@ -4,6 +4,7 @@ import { ChevronRight, Download, Edit3, Minus, Plus, RefreshCw, Trash2, X } from
 import { useApp, type Booking } from '../../../context/AppContext';
 import { toast, EditAmountPencil } from '../../atmosfera';
 import { PiggyNotCountedCard, type PiggyNotCountedItem } from './PiggyNotCountedCard';
+import { PiggyDailyReconciliation } from './PiggyDailyReconciliation';
 
 type PiggyTab = 'all' | 'wash' | 'detailing' | 'general';
 
@@ -543,6 +544,15 @@ export function OwnerPiggyBankScreen({
           </div>
         </div>
       )}
+
+      {/* Сверка по дням: расчётный остаток vs факт кассы */}
+      <PiggyDailyReconciliation
+        piggyTab={piggyTab}
+        glass={glass}
+        sub={sub}
+        isDark={isDark}
+        primary={primary}
+      />
 
       {/* «Не в копилке»: сверка с кассой по текущему табу */}
       <PiggyNotCountedCard

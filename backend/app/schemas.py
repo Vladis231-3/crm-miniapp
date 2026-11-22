@@ -2944,3 +2944,12 @@ class AuditLogPayload(BaseModel):
 class AuditLogListPayload(BaseModel):
     items: list[AuditLogPayload] = Field(default_factory=list)
     total: int = 0
+
+
+class PiggyCashCountRequest(BaseModel):
+    """Фактический остаток кассы копилки на конец дня (карточка «Сверка по дням»)."""
+
+    date: str = Field(min_length=8, max_length=16)
+    resourceGroup: str = Field(min_length=1, max_length=64)
+    amount: float = Field(ge=0)
+    note: str = Field(default="", max_length=255)
