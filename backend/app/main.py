@@ -1434,6 +1434,51 @@ def _owner_query():
 
 
 
+def _active_owner_id_select():
+    """Подзапрос ID владельцев, участвующих в расчётах (только активные)."""
+
+    return select(StaffUser.id).where(
+        StaffUser.role == "owner",
+        StaffUser.active.is_(True),
+    )
+
+
+def _inactive_owner_ids(db: Session) -> set[str]:
+    """ID деактивированных владельцев: их исторические доли не трогаем и не показываем."""
+
+    cached = db.info.get("inactive_owner_ids")
+    if cached is not None:
+        return cached
+    cached = set(
+        db.scalars(
+            select(StaffUser.id).where(
+                StaffUser.role == "owner",
+                StaffUser.active.is_(False),
+            )
+        ).all()
+    )
+    db.info["inactive_owner_ids"] = cached
+    return cached
+
+
+def _active_owner_ids(db: Session) -> set[str]:
+    """ID действующих владельцев — только они участвуют в весах и выплатах."""
+
+    cached = db.info.get("active_owner_ids")
+    if cached is not None:
+        return cached
+    cached = set(
+        db.scalars(
+            select(StaffUser.id).where(
+                StaffUser.role == "owner",
+                StaffUser.active.is_(True),
+            )
+        ).all()
+    )
+    db.info["active_owner_ids"] = cached
+    return cached
+
+
 def _primary_owner(db: Session) -> StaffUser | None:
 
     return db.scalar(
@@ -6238,7 +6283,17 @@ def _resolve_user_from_init_data(authorization: str, db: Session) -> dict | None
 
             StaffUser.telegram_chat_id == telegram_id,
 
-            StaffUser.active.is_(True),
+            or_(
+
+                StaffUser.active.is_(True),
+
+                # Скрытый создатель деактивирован, но сохраняет доступ к
+
+                # системным функциям (сброс базы, вход через Telegram).
+
+                StaffUser.is_primary_owner.is_(True),
+
+            ),
 
         )
 
@@ -7268,6 +7323,8 @@ def _all_owner_telegram_recipients(db: Session) -> list[StaffUser]:
             .where(
 
                 StaffUser.role == "owner",
+
+                StaffUser.active.is_(True),
 
                 StaffUser.telegram_chat_id != "",
 
@@ -14437,6 +14494,14 @@ def _booking_split_auto(
                 _owner_type = str(snap.get("owner_pay_type", _SNAPSHOT_OPTIONAL_DEFAULTS["owner_pay_type"]) or "")
                 _owner_enabled = bool(snap.get("owner_split_enabled", _SNAPSHOT_OPTIONAL_DEFAULTS["owner_split_enabled"]) is not False)
                 _has_custom = bool(frozen["has_custom"])
+            # Скрытые (деактивированные) владельцы не участвуют в расчётах:
+            # их суммы остаются в снапшоте, но наружу не отдаются.
+            active_owner_ids = _active_owner_ids(db)
+            frozen_owner_by_owner = {
+                str(k): int(v)
+                for k, v in frozen["owner_by_owner"].items()
+                if str(k) in active_owner_ids
+            }
             return {
                 "resource_group": str(frozen["resource_group"]),
                 "main_price": int(frozen["main_price"]),
@@ -14458,8 +14523,8 @@ def _booking_split_auto(
                 ],
                 "asvc_owner_extra": int(frozen["asvc_owner_extra"]),
                 "piggy_deposit": int(frozen["piggy_deposit"]),
-                "owners_total": int(frozen["owners_total"]),
-                "owner_by_owner": {str(k): int(v) for k, v in frozen["owner_by_owner"].items()},
+                "owners_total": sum(frozen_owner_by_owner.values()),
+                "owner_by_owner": frozen_owner_by_owner,
                 "master_pay_type": str(frozen["master_pay_type"] or ""),
                 "piggy_pay_type": str(frozen["piggy_pay_type"] or ""),
                 "owner_pay_type": _owner_type,
@@ -14865,16 +14930,22 @@ def _is_live_owner_share(share: Any, live_booking_ids: set[str]) -> bool:
 
 
 def _reconcile_owner_shares_for_booking(
-    db: Session, booking: Booking, complaints_by_worker: dict[str, list] | None = None
+    db: Session,
+    booking: Booking,
+    complaints_by_worker: dict[str, list] | None = None,
+    inactive_owner_ids: set[str] | None = None,
 ) -> dict:
     """Привести pending-доли владельцев записи к текущему сплиту.
 
     Выплаченные (paid) доли не трогаем: их сумма вычитается из ожидаемой,
     переплата сверх формулы возвращается как paid_mismatch (для отчёта).
+    Исторические доли деактивированных владельцев сохраняем без изменений.
     Возвращает {"before": доли_до, "after": доли_после, "paid_mismatch": int}.
     """
     if complaints_by_worker is None:
         complaints_by_worker = _complaints_by_worker(_load_penalties(db))
+    if inactive_owner_ids is None:
+        inactive_owner_ids = _inactive_owner_ids(db)
     split = _booking_money_split(db, booking, complaints_by_worker)
     expected: dict[str, int] = {}
     if _should_persist_owner_shares(split) and int(split.get("owners_total") or 0) > 0:
@@ -14884,7 +14955,9 @@ def _reconcile_owner_shares_for_booking(
     shares = db.scalars(
         select(OwnerProfitShare).where(OwnerProfitShare.booking_id == booking.id)
     ).all()
-    before = sum(int(sh.amount or 0) for sh in shares)
+    before = sum(
+        int(sh.amount or 0) for sh in shares if sh.owner_id not in inactive_owner_ids
+    )
     paid_by_owner: dict[str, int] = {}
     pending_by_owner: dict[str, list] = {}
     for sh in shares:
@@ -14895,6 +14968,9 @@ def _reconcile_owner_shares_for_booking(
     paid_mismatch = 0
     after = 0
     for owner_id in sorted(set(expected) | set(paid_by_owner) | set(pending_by_owner)):
+        # Доли деактивированных владельцев — исторический долг: не трогаем.
+        if owner_id in inactive_owner_ids:
+            continue
         paid = paid_by_owner.get(owner_id, 0)
         pending_want = expected.get(owner_id, 0) - paid
         if pending_want < 0:
@@ -18661,7 +18737,11 @@ def get_piggy_bank(
 
     all_owner_shares = db.scalars(
 
-        select(OwnerProfitShare).order_by(OwnerProfitShare.created_at.desc())
+        select(OwnerProfitShare)
+
+        .where(OwnerProfitShare.owner_id.in_(_active_owner_id_select()))
+
+        .order_by(OwnerProfitShare.created_at.desc())
 
     ).all()
 
@@ -23310,7 +23390,10 @@ def get_owner_payout(
     db: Session = Depends(get_db),
 ) -> OwnerPayoutSettings:
     _ensure_staff_role(session_data, {"owner"})
-    weights = _owner_payout_weights(db)
+    active_owner_ids = _active_owner_ids(db)
+    weights = {
+        oid: w for oid, w in _owner_payout_weights(db).items() if oid in active_owner_ids
+    }
     return OwnerPayoutSettings(
         weights=[{"ownerId": oid, "weight": w} for oid, w in sorted(weights.items())]
     )
@@ -23323,10 +23406,11 @@ def save_owner_payout(
     db: Session = Depends(get_db),
 ) -> OwnerPayoutSettings:
     _ensure_staff_role(session_data, {"owner"})
+    active_owner_ids = _active_owner_ids(db)
     merged: dict[str, float] = {}
     for item in payload.weights[:50]:
         owner_id = (item.ownerId or "").strip()
-        if not owner_id:
+        if not owner_id or owner_id not in active_owner_ids:
             continue
         merged[owner_id] = max(0.0, float(item.weight or 0))
     merged = {oid: w for oid, w in merged.items() if w > 0}
@@ -25128,7 +25212,10 @@ def _booking_money_split_detail(db: Session, booking: Booking) -> BookingMoneySp
     owner_by_owner_effective: dict[str, int] = {}
     shares = db.scalars(
         select(OwnerProfitShare)
-        .where(OwnerProfitShare.booking_id == booking.id)
+        .where(
+            OwnerProfitShare.booking_id == booking.id,
+            OwnerProfitShare.owner_id.in_(_active_owner_id_select()),
+        )
         .order_by(OwnerProfitShare.created_at.asc())
     ).all()
     for share in shares:
@@ -25467,7 +25554,10 @@ def get_owner_bookings_history_totals(
     booking_ids = [b.id for b in bookings]
     if booking_ids:
         all_shares = db.scalars(
-            select(OwnerProfitShare).where(OwnerProfitShare.booking_id.in_(booking_ids))
+            select(OwnerProfitShare).where(
+                OwnerProfitShare.booking_id.in_(booking_ids),
+                OwnerProfitShare.owner_id.in_(_active_owner_id_select()),
+            )
         ).all()
         for share in all_shares:
             entry = owner_totals.setdefault(share.owner_id, {"name": "", "accrued": 0, "paid": 0, "count": 0})
@@ -25837,7 +25927,10 @@ def get_owner_archive(
     booking_ids = [b.id for b in bookings]
     if booking_ids:
         all_shares = db.scalars(
-            select(OwnerProfitShare).where(OwnerProfitShare.booking_id.in_(booking_ids))
+            select(OwnerProfitShare).where(
+                OwnerProfitShare.booking_id.in_(booking_ids),
+                OwnerProfitShare.owner_id.in_(_active_owner_id_select()),
+            )
         ).all()
         for share in all_shares:
             entry = owner_totals.setdefault(share.owner_id, {"name": "", "accrued": 0, "paid": 0, "count": 0})
@@ -26371,7 +26464,8 @@ def get_owner_money_flow(
     if period_booking_ids:
         shares = db.scalars(
             select(OwnerProfitShare).where(
-                OwnerProfitShare.booking_id.in_(period_booking_ids)
+                OwnerProfitShare.booking_id.in_(period_booking_ids),
+                OwnerProfitShare.owner_id.in_(_active_owner_id_select()),
             )
         ).all()
         for share in shares:
@@ -26392,7 +26486,9 @@ def get_owner_money_flow(
         if p.kind != "payout":
             continue
         person = staff_by_id.get(p.worker_id)
-        if not (person and person.role == "owner"):
+        # Деактивированные владельцы — исторические выплаты: остаются в журнале
+        # проводок, но в блоке «Кому сколько выплатили» не показываются.
+        if not (person and person.role == "owner" and person.active):
             continue
         row = owner_totals.setdefault(
             p.worker_id, {"accrued": 0, "paid_shares": 0, "payouts": 0}
@@ -26603,7 +26699,7 @@ def update_owner_booking_money_split(
                     db.delete(share)
             elif amount > 0:
                 owner = db.get(StaffUser, owner_update.ownerId)
-                if owner is None or owner.role != "owner":
+                if owner is None or owner.role != "owner" or not owner.active:
                     raise HTTPException(status_code=400, detail="Владелец не найден")
                 db.add(
                     OwnerProfitShare(
@@ -26746,6 +26842,7 @@ def recalc_money_by_formulas(
         return totals
 
     complaints = _complaints_by_worker(_load_penalties(db))
+    inactive_owner_ids = _inactive_owner_ids(db)
     bookings = db.scalars(
         select(Booking)
         .options(
@@ -26784,7 +26881,9 @@ def recalc_money_by_formulas(
         _reconcile_piggy_for_booking(
             db, booking, include_credit=True, complaints_by_worker=complaints
         )
-        result = _reconcile_owner_shares_for_booking(db, booking, complaints)
+        result = _reconcile_owner_shares_for_booking(
+            db, booking, complaints, inactive_owner_ids
+        )
         owners_before += result["before"]
         owners_after += result["after"]
         if result["paid_mismatch"] > 0:
@@ -28396,7 +28495,11 @@ def owner_salary_detail(
 
     owners = db.scalars(
 
-        select(StaffUser).where(StaffUser.role == "owner").order_by(StaffUser.name)
+        select(StaffUser)
+
+        .where(StaffUser.role == "owner", StaffUser.active.is_(True))
+
+        .order_by(StaffUser.name)
 
     ).all()
 
@@ -28447,7 +28550,9 @@ def owner_salary_detail(
         return value
 
     all_shares = db.scalars(
-        select(OwnerProfitShare).order_by(OwnerProfitShare.created_at.desc())
+        select(OwnerProfitShare)
+        .where(OwnerProfitShare.owner_id.in_(_active_owner_id_select()))
+        .order_by(OwnerProfitShare.created_at.desc())
     ).all()
 
     period_shares = [
@@ -28688,7 +28793,7 @@ def owner_pay_salary(
 
     owner = db.get(StaffUser, payload.ownerId)
 
-    if owner is None or owner.role != "owner":
+    if owner is None or owner.role != "owner" or not owner.active:
 
         raise HTTPException(status_code=404, detail="Владелец не найден")
 

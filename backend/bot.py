@@ -452,7 +452,15 @@ def _serialize_now() -> str:
 
 
 def _owner_by_chat_id(db, chat_id: int) -> StaffUser | None:
-    return db.query(StaffUser).filter(StaffUser.role == "owner", StaffUser.telegram_chat_id == str(chat_id)).first()
+    return (
+        db.query(StaffUser)
+        .filter(
+            StaffUser.role == "owner",
+            StaffUser.active.is_(True),
+            StaffUser.telegram_chat_id == str(chat_id),
+        )
+        .first()
+    )
 
 
 def _apply_shift_review_from_bot(chat_id: int, inspection_id: str, action: str, issue_note: str = "") -> str:

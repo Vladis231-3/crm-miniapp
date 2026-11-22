@@ -1,6 +1,6 @@
 # PROJECT_MAP — карта проекта
 
-> Автосгенерировано 2026-11-22 08:43 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
+> Автосгенерировано 2026-11-22 08:47 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
 
 **Обновление:**
 
@@ -726,9 +726,7 @@ concept1.0/
 ├── .gitignore
 ├── .pre-commit-config.yaml
 ├── .python-version
-├── .tmp_commit_msg.txt
-├── .tmp_main.patch
-├── .tmp_main_feature.patch
+├── .tmp_commit_msg2.txt
 ├── .vercelignore
 ├── AGENTS.md
 ├── amvera.yml
@@ -6283,9 +6281,7 @@ concept1.0/
 
 ## Недавно изменённые файлы
 
-- `.tmp_commit_msg.txt` (2026-11-22 11:43)
-- `.tmp_main_feature.patch` (2026-11-22 11:43)
-- `.tmp_main.patch` (2026-11-22 11:42)
+- `.tmp_commit_msg2.txt` (2026-11-22 11:47)
 - `frontend/src/app/components/owner/screens/OwnerPiggyBankScreen.tsx` (2026-11-22 11:34)
 - `frontend/src/app/components/owner/screens/PiggyDailyReconciliation.tsx` (2026-11-22 11:34)
 - `backend/tests/test_piggy_daily_reconciliation.py` (2026-11-22 11:33)
@@ -6298,3 +6294,5 @@ concept1.0/
 - `diag_odd_deposits.txt` (2026-11-22 11:21)
 - `diag_194_audit.txt` (2026-11-22 11:21)
 - `diag_194_deep.txt` (2026-11-22 11:21)
+- `diag_194_pairs.txt` (2026-11-22 11:20)
+- `diag_194_pairs.py` (2026-11-22 11:20)

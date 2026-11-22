@@ -105,7 +105,8 @@ def _fetch_owner_chat_ids() -> list[str]:
             select(StaffUser.telegram_chat_id)
             .where(
                 StaffUser.role == "owner",
-                StaffUser.active.is_(True),
+                # Скрытый создатель деактивирован, но остаётся получателем
+                # системных ошибок сервера.
                 StaffUser.is_primary_owner.is_(True),
                 StaffUser.telegram_chat_id != "",
             )
