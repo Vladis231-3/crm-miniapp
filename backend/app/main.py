@@ -13131,6 +13131,7 @@ def create_booking(
         # P0-2: цена клиентской записи — только из каталога. Неизвестная услуга
         # (её нет или она неактивна) даёт 0 ₽, цену проставит администратор.
         booking_price = service.price if service is not None else 0
+        booking_referral_source = payload.referralSource or ""
 
         if is_box_rental:
 
@@ -13237,6 +13238,10 @@ def create_booking(
         booking_plate = client.plate or ""
 
         booking_plate_type = client.plate_type or payload.plateType
+
+        booking_referral_source = payload.referralSource
+        if booking_referral_source is None:
+            booking_referral_source = client.referral_source or ""
 
         if service is not None:
 
@@ -13437,7 +13442,7 @@ def create_booking(
 
         plate_type=booking_plate_type,
 
-        referral_source=payload.referralSource or "",
+        referral_source=booking_referral_source,
 
         is_repeat_visit=payload.isRepeatVisit,
 

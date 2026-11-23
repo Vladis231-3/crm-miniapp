@@ -1503,7 +1503,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           debtBalance: existingClient?.debtBalance || 0,
           adminRating: existingClient?.adminRating || 0,
           adminNote: existingClient?.adminNote || '',
-          referralSource: booking.referralSource || existingClient?.referralSource || '',
+          referralSource: created.referralSource || existingClient?.referralSource || '',
           createdAt: existingClient?.createdAt || new Date(),
         };
         if (current.some((client) => client.id === created.clientId)) {

@@ -51,6 +51,8 @@ import {
 import { FIXED_MASTER_EARNED, formatFixedMasterAmount, isFixedMasterService } from '../ui/utils';
 import { bookingMainOutsource, dopWorkerEarned, mainWorkerEarned } from '../../utils/moneySplit';
 import { REFERRAL_SOURCES } from '../../constants/referralSources';
+import { BookingReferralSourceSelect } from '../shared/BookingReferralSourceSelect';
+import { findBookingClient } from '../../utils/bookingClient';
 import { cancelReasonLabel, isRefusalStatus } from '../../constants/cancelReasons';
 import { CANCEL_ABORTED_MESSAGE, useCancelGuardedUpdate } from '../shared/CancelReasonDialog';
 
@@ -421,7 +423,7 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
     isOutsource: false,
     outsourceAmount: 0,
     outsourcerId: '',
-    referralSource: '',
+    referralSource: undefined as string | undefined,
     isRepeatVisit: false,
   });
   const [showAddServiceModal, setShowAddServiceModal] = useState(false);
@@ -530,6 +532,7 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
     ? (selectedClient.vehicles?.length ? selectedClient.vehicles : [{ car: selectedClient.car, plate: selectedClient.plate }])
       .filter((vehicle) => vehicle.car || vehicle.plate)
     : [];
+  const newBookingClient = findBookingClient(registeredClients, newBookingForm);
   const newBookingClientVehicles = newBookingForm.clientId
     ? (() => {
       const client = registeredClients.find((c) => c.id === newBookingForm.clientId);
@@ -1052,6 +1055,7 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
       duration: 30,
       car: '',
       plate: '',
+      plateType: 'russian',
       notes: '',
       status: 'admin_review',
       paymentType: 'cash' as 'cash' | 'transfer' | 'invoice',
@@ -1059,7 +1063,7 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
       isOutsource: false,
       outsourceAmount: 0,
       outsourcerId: '',
-      referralSource: '',
+      referralSource: undefined,
       isRepeatVisit: false,
     });
   };
@@ -1094,7 +1098,6 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
       car: mainVehicle?.car || client.car || '',
       plate: mainVehicle?.plate || client.plate || '',
       plateType: ((mainVehicle?.plateType || client.plateType) as PlateType) || 'russian',
-      referralSource: client.referralSource || '',
       isRepeatVisit: hasPriorVisits,
       status,
       date: status === 'completed' ? formatDate(historyDate) : current.date,
@@ -1392,7 +1395,7 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
     try {
       setNewBookingSaving(true);
       await addBooking({
-        clientId: newBookingForm.clientId,
+        clientId: newBookingForm.clientId || newBookingClient?.id || '',
         clientName: normalizedClientName,
         clientPhone: newBookingForm.clientPhone.trim(),
         service: svc?.name || newBookingForm.service,
@@ -1413,7 +1416,7 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
         plate: normalizedPlate,
         plateType: newBookingForm.plateType,
         notes: newBookingForm.notes,
-        referralSource: newBookingForm.referralSource || undefined,
+        referralSource: newBookingForm.referralSource,
         isRepeatVisit: newBookingForm.isRepeatVisit,
         notifyWorkers: notify,
         materials: newBookingMaterials.map(m => ({
@@ -3644,15 +3647,11 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
                 </div>
                 <div>
                   <label className={`text-xs ${sub} block mb-1`}>Как узнал о нас</label>
-                  <select
+                  <BookingReferralSourceSelect
                     className={selectCls}
-                    value={newBookingForm.referralSource}
-                    onChange={(event) => setNewBookingForm((current) => ({ ...current, referralSource: event.target.value }))}
-                  >
-                    {REFERRAL_SOURCES.map((source) => (
-                      <option key={source.value} value={source.value}>{source.label}</option>
-                    ))}
-                  </select>
+                    value={newBookingForm.referralSource ?? newBookingClient?.referralSource ?? ''}
+                    onChange={(referralSource) => setNewBookingForm((form) => ({ ...form, referralSource }))}
+                  />
                 </div>
                 <label className={`${glass} rounded-2xl px-3 py-3 text-sm flex items-center justify-between gap-3`}>
                   <span>Повторный визит</span>

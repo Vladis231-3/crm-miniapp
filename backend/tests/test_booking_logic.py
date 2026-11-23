@@ -2261,6 +2261,43 @@ class BookingLogicTests(unittest.TestCase):
         )
         self.assertEqual(response.status_code, 409, response.text)
 
+    def test_staff_booking_inherits_referral_source_from_matched_client(self) -> None:
+        admin_token = self.login_staff("admin", "admin")
+        headers = self.auth_headers(admin_token)
+        _, client_id = self.login_client(name="Alice", phone="+7 (999) 111-22-33")
+        card = self.client.patch(
+            f"/api/clients/{client_id}/card",
+            headers=headers,
+            json={"referralSource": "Авито"},
+        )
+        self.assertEqual(card.status_code, 200, card.text)
+
+        payload = {
+            "clientId": "",
+            "clientName": "Alice",
+            "clientPhone": "8 (999) 111-22-33",
+            "service": "",
+            "serviceId": "s1",
+            "date": "",
+            "time": "",
+            "duration": 30,
+            "price": 1200,
+            "status": "admin_review",
+            "box": "",
+            "paymentType": "cash",
+        }
+        for overrides, expected in (
+            ({}, "Авито"),
+            ({"clientId": client_id, "clientPhone": ""}, "Авито"),
+            ({"referralSource": ""}, ""),
+            ({"referralSource": "Telegram"}, "Telegram"),
+        ):
+            with self.subTest(overrides=overrides):
+                response = self.client.post("/api/bookings", headers=headers, json=payload | overrides)
+                self.assertEqual(response.status_code, 200, response.text)
+                self.assertEqual(response.json()["clientId"], client_id)
+                self.assertEqual(response.json()["referralSource"], expected)
+
     def test_admin_can_save_profile_and_notification_settings(self) -> None:
         admin_token = self.login_staff("admin", "admin")
 

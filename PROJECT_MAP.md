@@ -1,6 +1,6 @@
 # PROJECT_MAP — карта проекта
 
-> Автосгенерировано 2026-11-22 08:47 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
+> Автосгенерировано 2026-11-23 14:25 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
 
 **Обновление:**
 
@@ -12,9 +12,9 @@ python scripts/generate_project_map.py --install-hook  # git pre-commit хук (
 
 ## Статистика
 
-- Файлов кода: **548**
-- Строк кода: **193 021**
-- По расширениям: `.js`: 3, `.mjs`: 9, `.py`: 178, `.ts`: 41, `.tsx`: 317
+- Файлов кода: **550**
+- Строк кода: **193 114**
+- По расширениям: `.js`: 3, `.mjs`: 9, `.py`: 178, `.ts`: 42, `.tsx`: 318
 
 ## Архитектура
 
@@ -480,6 +480,7 @@ concept1.0/
 │   │   │   │   ├── shared/
 │   │   │   │   │   ├── Atmosfera.tsx
 │   │   │   │   │   ├── AttendanceTable.tsx
+│   │   │   │   │   ├── BookingReferralSourceSelect.tsx
 │   │   │   │   │   ├── CancellationStatsCard.tsx
 │   │   │   │   │   ├── CancelReasonDialog.tsx
 │   │   │   │   │   ├── EmptyState.tsx
@@ -512,6 +513,7 @@ concept1.0/
 │   │   │   │   ├── useTelegramMainButton.ts
 │   │   │   │   └── useTelegramSetup.ts
 │   │   │   ├── utils/
+│   │   │   │   ├── bookingClient.ts
 │   │   │   │   ├── complaints.ts
 │   │   │   │   ├── date.ts
 │   │   │   │   ├── moneySplit.ts
@@ -726,7 +728,6 @@ concept1.0/
 ├── .gitignore
 ├── .pre-commit-config.yaml
 ├── .python-version
-├── .tmp_commit_msg2.txt
 ├── .vercelignore
 ├── AGENTS.md
 ├── amvera.yml
@@ -1020,7 +1021,7 @@ concept1.0/
 - `_pull_one_calendardef _pull_one_calendar(db: Any, settings: Settings, conn: dict[str, Any]) -> dict[str, Any]: """Обратная синхронизация одного календаря. Возвращает свою статистику. result["ok"]=Fa` (стр. 1899)
 - `_pull_calendar_changes_impldef _pull_calendar_changes_impl(db: Any, settings: Settings) -> dict[str, Any]: result = _empty_pull_result() if not is_configured(settings, db):` (стр. 1953)
 
-### backend/app/main.py (29665 строк)
+### backend/app/main.py (29670 строк)
 
 Роуты (160):
 
@@ -1062,129 +1063,129 @@ concept1.0/
   `DELETE /api/stock-categories/{category_id}` -> `delete_stock_category` (декоратор: стр. 12939)
   `GET /api/bookings/availability` -> `get_booking_availability` (декоратор: стр. 12973)
   `POST /api/bookings` -> `create_booking` (декоратор: стр. 13049)
-  `PATCH /api/bookings/{booking_id}` -> `update_booking` (декоратор: стр. 15138)
-  `DELETE /api/bookings/{booking_id}` -> `delete_booking` (декоратор: стр. 15965)
-  `POST /api/bookings/{booking_id}/services` -> `add_booking_service` (декоратор: стр. 16096)
-  `POST /api/bookings/{booking_id}/additional-services` -> `add_booking_additional_service` (декоратор: стр. 16170)
-  `DELETE /api/bookings/{booking_id}/additional-services/{additional_service_id}` -> `remove_booking_additional_service` (декоратор: стр. 16314)
-  `PATCH /api/bookings/{booking_id}/additional-services/{additional_service_id}` -> `update_booking_additional_service` (декоратор: стр. 16389)
-  `POST /api/notifications` -> `create_notification` (декоратор: стр. 16489)
-  `PATCH /api/notifications/{notification_id}/read` -> `mark_notification_read` (декоратор: стр. 16571)
-  `POST /api/notifications/read-all` -> `mark_all_notifications_read` (декоратор: стр. 16649)
-  `GET /api/notifications` -> `list_my_notifications` (декоратор: стр. 16715)
-  `POST /api/broadcasts/workers` -> `broadcast_to_workers` (декоратор: стр. 16737)
-  `POST /api/notifications/{notification_id}/take-to-work` -> `take_notification_to_work` (декоратор: стр. 16797)
-  `POST /api/notifications/{notification_id}/complete` -> `complete_notification_task` (декоратор: стр. 16829)
-  `POST /api/stock-items` -> `create_stock_item` (декоратор: стр. 16861)
-  `PATCH /api/stock-items/{item_id}` -> `update_stock_item` (декоратор: стр. 16897)
-  `POST /api/stock-items/{item_id}/write-off` -> `write_off_stock` (декоратор: стр. 16945)
-  `GET /api/stock/write-off-history` -> `get_write_off_history` (декоратор: стр. 16994)
-  `DELETE /api/stock-items/{item_id}` -> `delete_stock_item` (декоратор: стр. 17025)
-  `GET /api/shift-checklists` -> `list_shift_checklists` (декоратор: стр. 17061)
-  `POST /api/shift-checklists` -> `submit_shift_checklist` (декоратор: стр. 17103)
-  `GET /api/admin/shift-inspections` -> `list_admin_shift_inspections` (декоратор: стр. 17225)
-  `GET /api/admin/shift-inspections/{inspection_id}/photo` -> `get_admin_shift_inspection_photo` (декоратор: стр. 17271)
-  `POST /api/admin/shift-inspections` -> `submit_admin_shift_inspection` (декоратор: стр. 17353)
-  `POST /api/admin/shift-inspections/{inspection_id}/review` -> `review_admin_shift_inspection` (декоратор: стр. 17509)
-  `POST /api/owner/shift-openings` -> `open_shift_for_masters` (декоратор: стр. 17548)
-  `POST /api/expenses` -> `create_expense` (декоратор: стр. 17674)
-  `PATCH /api/expenses/{expense_id}` -> `update_expense` (декоратор: стр. 17753)
-  `GET /api/owner/incomes` -> `list_incomes` (декоратор: стр. 17819)
-  `POST /api/owner/incomes` -> `create_income` (декоратор: стр. 17867)
-  `PATCH /api/owner/incomes/{income_id}` -> `update_income` (декоратор: стр. 17963)
-  `GET /api/owner/piggy-bank` -> `get_piggy_bank` (декоратор: стр. 18237)
-  `GET /api/owner/piggy-bank/daily` -> `get_piggy_bank_daily` (декоратор: стр. 19274)
-  `PUT /api/owner/piggy-bank/cash-count` -> `put_piggy_cash_count` (декоратор: стр. 19417)
-  `DELETE /api/owner/piggy-bank/cash-count` -> `delete_piggy_cash_count` (декоратор: стр. 19486)
-  `POST /api/owner/piggy-bank/withdraw` -> `piggy_bank_withdraw` (декоратор: стр. 19523)
-  `POST /api/owner/piggy-bank/repay` -> `piggy_bank_repay` (декоратор: стр. 19968)
-  `POST /api/owner/piggy-bank/deposit` -> `piggy_bank_deposit` (декоратор: стр. 20291)
-  `POST /api/owner/piggy-bank/adjust` -> `piggy_bank_adjust` (декоратор: стр. 20362)
-  `DELETE /api/owner/piggy-bank/transactions/{tx_id}` -> `delete_piggy_bank_transaction` (декоратор: стр. 20545)
-  `GET /api/owner/deposits` -> `list_deposit_clients` (декоратор: стр. 20945)
-  `PATCH /api/owner/deposits/{client_id}` -> `update_deposit_subscription` (декоратор: стр. 20989)
-  `POST /api/owner/deposits/{client_id}/topup` -> `deposit_topup` (декоратор: стр. 21024)
-  `POST /api/owner/deposits/{client_id}/adjust` -> `deposit_adjust` (декоратор: стр. 21068)
-  `GET /api/owner/deposits/export-all.xlsx` -> `deposit_export_all_excel` (декоратор: стр. 21109)
-  `POST /api/owner/deposits/export-all.xlsx/telegram` -> `deposit_export_all_excel_telegram` (декоратор: стр. 21127)
-  `POST /api/owner/deposits/{client_id}/export.xlsx/telegram` -> `deposit_export_excel_telegram` (декоратор: стр. 21139)
-  `GET /api/owner/deposits/{client_id}` -> `get_deposit_overview` (декоратор: стр. 21157)
-  `POST /api/owner/deposits/{client_id}/washes` -> `deposit_record_wash` (декоратор: стр. 21170)
-  `POST /api/owner/deposits/{client_id}/settle-month` -> `deposit_settle_month` (декоратор: стр. 21294)
-  `GET /api/owner/deposits/{client_id}/export.xlsx` -> `deposit_export_excel` (декоратор: стр. 21409)
-  `GET /api/owner/wallet` -> `get_wallet` (декоратор: стр. 21469)
-  `GET /api/owner/workers/{worker_id}/shift-attendance` -> `get_worker_shift_attendance` (декоратор: стр. 21701)
-  `GET /api/owner/shift-attendance` -> `get_all_workers_shift_attendance` (декоратор: стр. 21797)
-  `GET /api/worker/shift-attendance` -> `get_own_shift_attendance` (декоратор: стр. 21877)
-  `GET /api/worker/calendar` -> `get_worker_calendar_bookings` (декоратор: стр. 21945)
-  `GET /api/worker/cars/search` -> `search_worker_cars` (декоратор: стр. 22124)
-  `POST /api/penalties` -> `create_penalty` (декоратор: стр. 22257)
-  `POST /api/penalties/{penalty_id}/revoke` -> `revoke_penalty` (декоратор: стр. 22407)
-  `POST /api/workers/{worker_id}/penalties/revoke-all` -> `revoke_all_worker_penalties` (декоратор: стр. 22549)
-  `POST /api/telegram/link-code` -> `generate_telegram_link_code` (декоратор: стр. 22695)
-  `PUT /api/settings/services` -> `save_services` (декоратор: стр. 22749)
-  `POST /api/settings/services/split-preview` -> `preview_service_split` (декоратор: стр. 22871)
-  `PUT /api/settings/boxes` -> `save_boxes` (декоратор: стр. 23012)
-  `PUT /api/settings/schedule` -> `save_schedule` (декоратор: стр. 23070)
-  `PUT /api/settings/admin/profile` -> `save_admin_profile` (декоратор: стр. 23118)
-  `PUT /api/settings/admin/notifications` -> `save_admin_notifications` (декоратор: стр. 23192)
-  `PUT /api/settings/workers/{worker_id}/profile` -> `save_worker_profile` (декоратор: стр. 23216)
-  `PUT /api/settings/workers/{worker_id}/notifications` -> `save_worker_notifications` (декоратор: стр. 23276)
-  `PUT /api/settings/owner/company` -> `save_owner_company` (декоратор: стр. 23318)
-  `PUT /api/settings/owner/notifications` -> `save_owner_notifications` (декоратор: стр. 23342)
-  `GET /api/settings/owner/payout` -> `get_owner_payout` (декоратор: стр. 23387)
-  `PUT /api/settings/owner/payout` -> `save_owner_payout` (декоратор: стр. 23402)
-  `PUT /api/settings/owner/integrations` -> `save_owner_integrations` (декоратор: стр. 23431)
-  `GET /api/owner/integrations/google/auth-url` -> `get_google_calendar_auth_url` (декоратор: стр. 23466)
-  `GET /api/owner/integrations/google/callback` -> `google_calendar_callback` (декоратор: стр. 23537)
-  `POST /api/owner/integrations/google/disconnect` -> `disconnect_google_calendar` (декоратор: стр. 23635)
-  `GET /api/owner/integrations/google/status` -> `get_google_calendar_status` (декоратор: стр. 23654)
-  `POST /api/owner/integrations/google/invites` -> `create_google_calendar_invite` (декоратор: стр. 23691)
-  `DELETE /api/owner/integrations/google/connections/{connection_id}` -> `delete_google_calendar_connection` (декоратор: стр. 23726)
-  `PUT /api/owner/integrations/google/credentials` -> `save_google_calendar_credentials` (декоратор: стр. 23752)
-  `DELETE /api/owner/integrations/google/credentials` -> `delete_google_calendar_credentials` (декоратор: стр. 23785)
-  `POST /api/owner/integrations/google/sync` -> `sync_google_calendar_now` (декоратор: стр. 23797)
-  `POST /api/owner/inactive-clients/remind-admin` -> `remind_admin_about_inactive_clients` (декоратор: стр. 23827)
-  `POST /api/owner/reminders/dispatch` -> `dispatch_owner_booking_reminders` (декоратор: стр. 23885)
-  `PUT /api/settings/owner/security` -> `save_owner_security` (декоратор: стр. 23905)
-  `PUT /api/workers/settings` -> `save_worker_settings` (декоратор: стр. 23941)
-  `GET /api/admin/workers/payroll` -> `get_admin_workers_payroll` (декоратор: стр. 24120)
-  `PUT /api/admin/workers/payroll` -> `save_admin_worker_payroll` (декоратор: стр. 24158)
-  `GET /api/owner/outsource/payroll` -> `get_owner_outsource_payroll` (декоратор: стр. 24327)
-  `GET /api/outsourcers` -> `list_outsourcers` (декоратор: стр. 24371)
-  `POST /api/outsourcers` -> `create_outsourcer` (декоратор: стр. 24383)
-  `PATCH /api/outsourcers/{outsourcer_id}` -> `update_outsourcer` (декоратор: стр. 24408)
-  `GET /api/owner/outsourcers/report` -> `get_outsourcers_report` (декоратор: стр. 24436)
-  `GET /api/owner/outsourcers/{outsourcer_id}/movements` -> `get_outsourcer_movements` (декоратор: стр. 24490)
-  `POST /api/payroll/entries` -> `create_payroll_entry` (декоратор: стр. 24518)
-  `PUT /api/payroll/entries/{entry_id}` -> `update_payroll_entry` (декоратор: стр. 24864)
-  `DELETE /api/payroll/entries/{entry_id}` -> `delete_payroll_entry` (декоратор: стр. 25025)
-  `PUT /api/payroll/booking-workers/{link_id}/override-earned` -> `update_booking_worker_override_earned` (декоратор: стр. 25115)
-  `GET /api/owner/bookings-history` -> `get_owner_bookings_history` (декоратор: стр. 25358)
-  `GET /api/owner/bookings-history/totals` -> `get_owner_bookings_history_totals` (декоратор: стр. 25448)
-  `GET /api/owner/archive` -> `get_owner_archive` (декоратор: стр. 25649)
-  `GET /api/owner/money-flow` -> `get_owner_money_flow` (декоратор: стр. 25977)
-  `GET /api/owner/bookings/{booking_id}/money-split` -> `get_owner_booking_money_split` (декоратор: стр. 26530)
-  `PUT /api/owner/bookings/{booking_id}/money-split` -> `update_owner_booking_money_split` (декоратор: стр. 26544)
-  `POST /api/admin/maintenance/repair-owner-shares` -> `repair_missing_owner_shares` (декоратор: стр. 26726)
-  `POST /api/admin/maintenance/recalc-money` -> `recalc_money_by_formulas` (декоратор: стр. 26790)
-  `GET /api/owner/workers/{worker_id}/salary-detail` -> `owner_worker_salary_detail` (декоратор: стр. 27278)
-  `GET /api/worker/salary-detail` -> `worker_my_salary_detail` (декоратор: стр. 27751)
-  `POST /api/owner/workers/{worker_id}/pay-salary` -> `owner_worker_pay_salary` (декоратор: стр. 28168)
-  `GET /api/owner/owners/salary-detail` -> `owner_salary_detail` (декоратор: стр. 28477)
-  `PATCH /api/owner/owners/{owner_id}/master-role` -> `set_owner_master_role` (декоратор: стр. 28750)
-  `POST /api/owner/owners/pay-salary` -> `owner_pay_salary` (декоратор: стр. 28777)
-  `POST /api/workers` -> `create_worker` (декоратор: стр. 29069)
-  `POST /api/workers/{worker_id}/reset-password` -> `reset_worker_password` (декоратор: стр. 29207)
-  `DELETE /api/workers/{worker_id}` -> `fire_worker` (декоратор: стр. 29267)
-  `GET /api/auth/session` -> `get_session_bootstrap` (декоратор: стр. 29463)
-  `GET /api/auth/role-preview` -> `get_role_preview` (декоратор: стр. 29477)
-  `POST /api/auth/role-preview` -> `set_role_preview` (декоратор: стр. 29492)
-  `GET /api/auth/consent/check` -> `check_consent` (декоратор: стр. 29544)
-  `POST /api/auth/consent` -> `record_consent` (декоратор: стр. 29556)
-  `GET /api/auth/sessions` -> `get_active_sessions` (декоратор: стр. 29580)
-  `POST /api/auth/logout` -> `logout` (декоратор: стр. 29588)
-  `POST /api/auth/change-password` -> `change_password` (декоратор: стр. 29601)
+  `PATCH /api/bookings/{booking_id}` -> `update_booking` (декоратор: стр. 15143)
+  `DELETE /api/bookings/{booking_id}` -> `delete_booking` (декоратор: стр. 15970)
+  `POST /api/bookings/{booking_id}/services` -> `add_booking_service` (декоратор: стр. 16101)
+  `POST /api/bookings/{booking_id}/additional-services` -> `add_booking_additional_service` (декоратор: стр. 16175)
+  `DELETE /api/bookings/{booking_id}/additional-services/{additional_service_id}` -> `remove_booking_additional_service` (декоратор: стр. 16319)
+  `PATCH /api/bookings/{booking_id}/additional-services/{additional_service_id}` -> `update_booking_additional_service` (декоратор: стр. 16394)
+  `POST /api/notifications` -> `create_notification` (декоратор: стр. 16494)
+  `PATCH /api/notifications/{notification_id}/read` -> `mark_notification_read` (декоратор: стр. 16576)
+  `POST /api/notifications/read-all` -> `mark_all_notifications_read` (декоратор: стр. 16654)
+  `GET /api/notifications` -> `list_my_notifications` (декоратор: стр. 16720)
+  `POST /api/broadcasts/workers` -> `broadcast_to_workers` (декоратор: стр. 16742)
+  `POST /api/notifications/{notification_id}/take-to-work` -> `take_notification_to_work` (декоратор: стр. 16802)
+  `POST /api/notifications/{notification_id}/complete` -> `complete_notification_task` (декоратор: стр. 16834)
+  `POST /api/stock-items` -> `create_stock_item` (декоратор: стр. 16866)
+  `PATCH /api/stock-items/{item_id}` -> `update_stock_item` (декоратор: стр. 16902)
+  `POST /api/stock-items/{item_id}/write-off` -> `write_off_stock` (декоратор: стр. 16950)
+  `GET /api/stock/write-off-history` -> `get_write_off_history` (декоратор: стр. 16999)
+  `DELETE /api/stock-items/{item_id}` -> `delete_stock_item` (декоратор: стр. 17030)
+  `GET /api/shift-checklists` -> `list_shift_checklists` (декоратор: стр. 17066)
+  `POST /api/shift-checklists` -> `submit_shift_checklist` (декоратор: стр. 17108)
+  `GET /api/admin/shift-inspections` -> `list_admin_shift_inspections` (декоратор: стр. 17230)
+  `GET /api/admin/shift-inspections/{inspection_id}/photo` -> `get_admin_shift_inspection_photo` (декоратор: стр. 17276)
+  `POST /api/admin/shift-inspections` -> `submit_admin_shift_inspection` (декоратор: стр. 17358)
+  `POST /api/admin/shift-inspections/{inspection_id}/review` -> `review_admin_shift_inspection` (декоратор: стр. 17514)
+  `POST /api/owner/shift-openings` -> `open_shift_for_masters` (декоратор: стр. 17553)
+  `POST /api/expenses` -> `create_expense` (декоратор: стр. 17679)
+  `PATCH /api/expenses/{expense_id}` -> `update_expense` (декоратор: стр. 17758)
+  `GET /api/owner/incomes` -> `list_incomes` (декоратор: стр. 17824)
+  `POST /api/owner/incomes` -> `create_income` (декоратор: стр. 17872)
+  `PATCH /api/owner/incomes/{income_id}` -> `update_income` (декоратор: стр. 17968)
+  `GET /api/owner/piggy-bank` -> `get_piggy_bank` (декоратор: стр. 18242)
+  `GET /api/owner/piggy-bank/daily` -> `get_piggy_bank_daily` (декоратор: стр. 19279)
+  `PUT /api/owner/piggy-bank/cash-count` -> `put_piggy_cash_count` (декоратор: стр. 19422)
+  `DELETE /api/owner/piggy-bank/cash-count` -> `delete_piggy_cash_count` (декоратор: стр. 19491)
+  `POST /api/owner/piggy-bank/withdraw` -> `piggy_bank_withdraw` (декоратор: стр. 19528)
+  `POST /api/owner/piggy-bank/repay` -> `piggy_bank_repay` (декоратор: стр. 19973)
+  `POST /api/owner/piggy-bank/deposit` -> `piggy_bank_deposit` (декоратор: стр. 20296)
+  `POST /api/owner/piggy-bank/adjust` -> `piggy_bank_adjust` (декоратор: стр. 20367)
+  `DELETE /api/owner/piggy-bank/transactions/{tx_id}` -> `delete_piggy_bank_transaction` (декоратор: стр. 20550)
+  `GET /api/owner/deposits` -> `list_deposit_clients` (декоратор: стр. 20950)
+  `PATCH /api/owner/deposits/{client_id}` -> `update_deposit_subscription` (декоратор: стр. 20994)
+  `POST /api/owner/deposits/{client_id}/topup` -> `deposit_topup` (декоратор: стр. 21029)
+  `POST /api/owner/deposits/{client_id}/adjust` -> `deposit_adjust` (декоратор: стр. 21073)
+  `GET /api/owner/deposits/export-all.xlsx` -> `deposit_export_all_excel` (декоратор: стр. 21114)
+  `POST /api/owner/deposits/export-all.xlsx/telegram` -> `deposit_export_all_excel_telegram` (декоратор: стр. 21132)
+  `POST /api/owner/deposits/{client_id}/export.xlsx/telegram` -> `deposit_export_excel_telegram` (декоратор: стр. 21144)
+  `GET /api/owner/deposits/{client_id}` -> `get_deposit_overview` (декоратор: стр. 21162)
+  `POST /api/owner/deposits/{client_id}/washes` -> `deposit_record_wash` (декоратор: стр. 21175)
+  `POST /api/owner/deposits/{client_id}/settle-month` -> `deposit_settle_month` (декоратор: стр. 21299)
+  `GET /api/owner/deposits/{client_id}/export.xlsx` -> `deposit_export_excel` (декоратор: стр. 21414)
+  `GET /api/owner/wallet` -> `get_wallet` (декоратор: стр. 21474)
+  `GET /api/owner/workers/{worker_id}/shift-attendance` -> `get_worker_shift_attendance` (декоратор: стр. 21706)
+  `GET /api/owner/shift-attendance` -> `get_all_workers_shift_attendance` (декоратор: стр. 21802)
+  `GET /api/worker/shift-attendance` -> `get_own_shift_attendance` (декоратор: стр. 21882)
+  `GET /api/worker/calendar` -> `get_worker_calendar_bookings` (декоратор: стр. 21950)
+  `GET /api/worker/cars/search` -> `search_worker_cars` (декоратор: стр. 22129)
+  `POST /api/penalties` -> `create_penalty` (декоратор: стр. 22262)
+  `POST /api/penalties/{penalty_id}/revoke` -> `revoke_penalty` (декоратор: стр. 22412)
+  `POST /api/workers/{worker_id}/penalties/revoke-all` -> `revoke_all_worker_penalties` (декоратор: стр. 22554)
+  `POST /api/telegram/link-code` -> `generate_telegram_link_code` (декоратор: стр. 22700)
+  `PUT /api/settings/services` -> `save_services` (декоратор: стр. 22754)
+  `POST /api/settings/services/split-preview` -> `preview_service_split` (декоратор: стр. 22876)
+  `PUT /api/settings/boxes` -> `save_boxes` (декоратор: стр. 23017)
+  `PUT /api/settings/schedule` -> `save_schedule` (декоратор: стр. 23075)
+  `PUT /api/settings/admin/profile` -> `save_admin_profile` (декоратор: стр. 23123)
+  `PUT /api/settings/admin/notifications` -> `save_admin_notifications` (декоратор: стр. 23197)
+  `PUT /api/settings/workers/{worker_id}/profile` -> `save_worker_profile` (декоратор: стр. 23221)
+  `PUT /api/settings/workers/{worker_id}/notifications` -> `save_worker_notifications` (декоратор: стр. 23281)
+  `PUT /api/settings/owner/company` -> `save_owner_company` (декоратор: стр. 23323)
+  `PUT /api/settings/owner/notifications` -> `save_owner_notifications` (декоратор: стр. 23347)
+  `GET /api/settings/owner/payout` -> `get_owner_payout` (декоратор: стр. 23392)
+  `PUT /api/settings/owner/payout` -> `save_owner_payout` (декоратор: стр. 23407)
+  `PUT /api/settings/owner/integrations` -> `save_owner_integrations` (декоратор: стр. 23436)
+  `GET /api/owner/integrations/google/auth-url` -> `get_google_calendar_auth_url` (декоратор: стр. 23471)
+  `GET /api/owner/integrations/google/callback` -> `google_calendar_callback` (декоратор: стр. 23542)
+  `POST /api/owner/integrations/google/disconnect` -> `disconnect_google_calendar` (декоратор: стр. 23640)
+  `GET /api/owner/integrations/google/status` -> `get_google_calendar_status` (декоратор: стр. 23659)
+  `POST /api/owner/integrations/google/invites` -> `create_google_calendar_invite` (декоратор: стр. 23696)
+  `DELETE /api/owner/integrations/google/connections/{connection_id}` -> `delete_google_calendar_connection` (декоратор: стр. 23731)
+  `PUT /api/owner/integrations/google/credentials` -> `save_google_calendar_credentials` (декоратор: стр. 23757)
+  `DELETE /api/owner/integrations/google/credentials` -> `delete_google_calendar_credentials` (декоратор: стр. 23790)
+  `POST /api/owner/integrations/google/sync` -> `sync_google_calendar_now` (декоратор: стр. 23802)
+  `POST /api/owner/inactive-clients/remind-admin` -> `remind_admin_about_inactive_clients` (декоратор: стр. 23832)
+  `POST /api/owner/reminders/dispatch` -> `dispatch_owner_booking_reminders` (декоратор: стр. 23890)
+  `PUT /api/settings/owner/security` -> `save_owner_security` (декоратор: стр. 23910)
+  `PUT /api/workers/settings` -> `save_worker_settings` (декоратор: стр. 23946)
+  `GET /api/admin/workers/payroll` -> `get_admin_workers_payroll` (декоратор: стр. 24125)
+  `PUT /api/admin/workers/payroll` -> `save_admin_worker_payroll` (декоратор: стр. 24163)
+  `GET /api/owner/outsource/payroll` -> `get_owner_outsource_payroll` (декоратор: стр. 24332)
+  `GET /api/outsourcers` -> `list_outsourcers` (декоратор: стр. 24376)
+  `POST /api/outsourcers` -> `create_outsourcer` (декоратор: стр. 24388)
+  `PATCH /api/outsourcers/{outsourcer_id}` -> `update_outsourcer` (декоратор: стр. 24413)
+  `GET /api/owner/outsourcers/report` -> `get_outsourcers_report` (декоратор: стр. 24441)
+  `GET /api/owner/outsourcers/{outsourcer_id}/movements` -> `get_outsourcer_movements` (декоратор: стр. 24495)
+  `POST /api/payroll/entries` -> `create_payroll_entry` (декоратор: стр. 24523)
+  `PUT /api/payroll/entries/{entry_id}` -> `update_payroll_entry` (декоратор: стр. 24869)
+  `DELETE /api/payroll/entries/{entry_id}` -> `delete_payroll_entry` (декоратор: стр. 25030)
+  `PUT /api/payroll/booking-workers/{link_id}/override-earned` -> `update_booking_worker_override_earned` (декоратор: стр. 25120)
+  `GET /api/owner/bookings-history` -> `get_owner_bookings_history` (декоратор: стр. 25363)
+  `GET /api/owner/bookings-history/totals` -> `get_owner_bookings_history_totals` (декоратор: стр. 25453)
+  `GET /api/owner/archive` -> `get_owner_archive` (декоратор: стр. 25654)
+  `GET /api/owner/money-flow` -> `get_owner_money_flow` (декоратор: стр. 25982)
+  `GET /api/owner/bookings/{booking_id}/money-split` -> `get_owner_booking_money_split` (декоратор: стр. 26535)
+  `PUT /api/owner/bookings/{booking_id}/money-split` -> `update_owner_booking_money_split` (декоратор: стр. 26549)
+  `POST /api/admin/maintenance/repair-owner-shares` -> `repair_missing_owner_shares` (декоратор: стр. 26731)
+  `POST /api/admin/maintenance/recalc-money` -> `recalc_money_by_formulas` (декоратор: стр. 26795)
+  `GET /api/owner/workers/{worker_id}/salary-detail` -> `owner_worker_salary_detail` (декоратор: стр. 27283)
+  `GET /api/worker/salary-detail` -> `worker_my_salary_detail` (декоратор: стр. 27756)
+  `POST /api/owner/workers/{worker_id}/pay-salary` -> `owner_worker_pay_salary` (декоратор: стр. 28173)
+  `GET /api/owner/owners/salary-detail` -> `owner_salary_detail` (декоратор: стр. 28482)
+  `PATCH /api/owner/owners/{owner_id}/master-role` -> `set_owner_master_role` (декоратор: стр. 28755)
+  `POST /api/owner/owners/pay-salary` -> `owner_pay_salary` (декоратор: стр. 28782)
+  `POST /api/workers` -> `create_worker` (декоратор: стр. 29074)
+  `POST /api/workers/{worker_id}/reset-password` -> `reset_worker_password` (декоратор: стр. 29212)
+  `DELETE /api/workers/{worker_id}` -> `fire_worker` (декоратор: стр. 29272)
+  `GET /api/auth/session` -> `get_session_bootstrap` (декоратор: стр. 29468)
+  `GET /api/auth/role-preview` -> `get_role_preview` (декоратор: стр. 29482)
+  `POST /api/auth/role-preview` -> `set_role_preview` (декоратор: стр. 29497)
+  `GET /api/auth/consent/check` -> `check_consent` (декоратор: стр. 29549)
+  `POST /api/auth/consent` -> `record_consent` (декоратор: стр. 29561)
+  `GET /api/auth/sessions` -> `get_active_sessions` (декоратор: стр. 29585)
+  `POST /api/auth/logout` -> `logout` (декоратор: стр. 29593)
+  `POST /api/auth/change-password` -> `change_password` (декоратор: стр. 29606)
 ```
 
 Классы и функции (362):
@@ -2049,9 +2050,9 @@ concept1.0/
 - `AuditLogTests.test_authorize_role_enforce_denies_by_defaultdef test_authorize_role_enforce_denies_by_default(self) -> None: # хвост T1.2: enforce — дефолт, флаг выставлять не нужно from fastapi import HTTPException from app.authz import au` (стр. 253)
 - `AuditLogTests.test_authorize_role_enforce_deniesdef test_authorize_role_enforce_denies(self) -> None: from fastapi import HTTPException from app.authz import authorize_role os.environ["AUTHZ_ENFORCE"] = "true" try: with self.ass` (стр. 274)
 
-### backend/tests/test_booking_logic.py (4715 строк)
+### backend/tests/test_booking_logic.py (4752 строк)
 
-Классы и функции (154):
+Классы и функции (155):
 
 - `reset_app_modulesdef reset_app_modules() -> None: for name in list(sys.modules):` (стр. 21)
 - `class BookingLogicTests(unittest.TestCase):` (стр. 33)
@@ -2138,75 +2139,76 @@ concept1.0/
 - `BookingLogicTests.test_admin_completion_creates_client_notificationdef test_admin_completion_creates_client_notification(self) -> None: admin_token = self.login_staff("admin", "admin") client_token, actor_id = self.login_client(name="Alice", phone` (стр. 2158)
 - `BookingLogicTests.test_admin_booking_reuses_existing_client_by_normalized_phonedef test_admin_booking_reuses_existing_client_by_normalized_phone(self) -> None: admin_token = self.login_staff("admin", "admin") _, client_id = self.login_client(name="Alice", pho` (стр. 2202)
 - `BookingLogicTests.test_admin_cannot_create_booking_with_conflicting_client_and_phonedef test_admin_cannot_create_booking_with_conflicting_client_and_phone(self) -> None: admin_token = self.login_staff("admin", "admin") _, first_client_id = self.login_client(name="` (стр. 2236)
-- `BookingLogicTests.test_admin_can_save_profile_and_notification_settingsdef test_admin_can_save_profile_and_notification_settings(self) -> None: admin_token = self.login_staff("admin", "admin") profile_response = self.client.put( "/api/settings/admin/p` (стр. 2264)
-- `BookingLogicTests.test_owner_can_create_admin_like_worker_and_update_telegram_idsdef test_owner_can_create_admin_like_worker_and_update_telegram_ids(self) -> None: self.disable_owner_two_factor() owner_token = self.login_staff("owner", "owner") create_admin = s` (стр. 2304)
-- `BookingLogicTests.test_owner_can_create_and_login_accountantdef test_owner_can_create_and_login_accountant(self) -> None: self.disable_owner_two_factor() owner_token = self.login_staff("owner", "owner") create_accountant = self.client.post(` (стр. 2386)
-- `BookingLogicTests.test_owner_can_rehire_employee_with_same_telegram_after_dismissaldef test_owner_can_rehire_employee_with_same_telegram_after_dismissal(self) -> None: self.disable_owner_two_factor() owner_token = self.login_staff("owner", "owner") create_worker ` (стр. 2425)
-- `BookingLogicTests.test_admin_can_manage_master_payroll_and_private_client_ratingdef test_admin_can_manage_master_payroll_and_private_client_rating(self) -> None: admin_token = self.login_staff("admin", "admin") _, client_id = self.login_client(name="Alice", ph` (стр. 2476)
-- `BookingLogicTests.test_admin_payroll_propagates_period_and_matches_salary_base_helperdef test_admin_payroll_propagates_period_and_matches_salary_base_helper(self) -> None: from app.database import SessionLocal from app.finance import money_int, salary_base_for_peri` (стр. 2518)
-- `BookingLogicTests.test_owner_and_admin_can_see_detailed_worker_payroll_summarydef test_owner_and_admin_can_see_detailed_worker_payroll_summary(self) -> None: self.disable_owner_two_factor() owner_token = self.login_staff("owner", "owner") admin_token = self.` (стр. 2578)
-- `BookingLogicTests.test_payroll_entry_notifies_worker_and_updates_summarydef test_payroll_entry_notifies_worker_and_updates_summary(self) -> None: from app.database import SessionLocal from app.models import Notification, StaffUser self.disable_owner_tw` (стр. 2671)
-- `BookingLogicTests.fake_send_messagedef fake_send_message(chat_id: str | int, text: str) -> None: sent_messages.append((chat_id, text))` (стр. 2686)
-- `BookingLogicTests.test_admin_cannot_issue_advance_before_worker_earns_1000def test_admin_cannot_issue_advance_before_worker_earns_1000(self) -> None: admin_token = self.login_staff("admin", "admin") response = self.client.post( "/api/payroll/entries", he` (стр. 2712)
-- `BookingLogicTests._tg_headersdef _tg_headers(self, login: str, telegram_id: str) -> dict[str, str]: """Авторизация текущего флоу (Telegram init data): привязываем telegram_chat_id к сотруднику и возвращаем заг` (стр. 2728)
-- `BookingLogicTests.test_payroll_entries_with_period_are_attributed_to_selected_perioddef test_payroll_entries_with_period_are_attributed_to_selected_period(self) -> None: """Премия/штраф/списание с выбранным периодом учитываются за этот период (08.08–14.08), а не п` (стр. 2747)
-- `BookingLogicTests.test_payroll_entry_without_period_keeps_created_at_behaviordef test_payroll_entry_without_period_keeps_created_at_behavior(self) -> None: """Операция без периода (legacy) учитывается по дате создания.""" owner_headers = self._tg_headers("o` (стр. 2812)
-- `BookingLogicTests.test_owner_can_delete_payroll_entry_with_linked_budget_recordsdef test_owner_can_delete_payroll_entry_with_linked_budget_records(self) -> None: """Владелец может удалить выплату и штраф; связанные записи бюджета удаляются.""" from app.databas` (стр. 2845)
-- `BookingLogicTests.test_owner_pay_salary_attributes_payout_to_selected_perioddef test_owner_pay_salary_attributes_payout_to_selected_period(self) -> None: """Выплата мастеру тоже привязывается к выбранному периоду.""" owner_headers = self._tg_headers("owner` (стр. 2942)
-- `BookingLogicTests.test_payroll_operations_for_current_periods_fall_on_conduction_daydef test_payroll_operations_for_current_periods_fall_on_conduction_day(self) -> None: """Выплата/премия за периоды day/week/month падают реальным днём проведения, а не концом перио` (стр. 2968)
-- `BookingLogicTests.test_owner_salary_detail_lists_db_owners_without_configdef test_owner_salary_detail_lists_db_owners_without_config(self) -> None: """Доходы владельцев видны без PERMANENT_TELEGRAM_OWNERS — владельцы берутся из БД.""" owner_headers = se` (стр. 3024)
-- `BookingLogicTests.test_owner_pdf_export_returns_pdf_filedef test_owner_pdf_export_returns_pdf_file(self) -> None: self.disable_owner_two_factor() owner_token = self.login_staff("owner", "owner") response = self.client.get("/api/owner/ex` (стр. 3052)
-- `BookingLogicTests.test_owner_can_create_booking_with_assigned_master_without_platedef test_owner_can_create_booking_with_assigned_master_without_plate(self) -> None: self.disable_owner_two_factor() owner_token = self.login_staff("owner", "owner") response = self` (стр. 3061)
-- `BookingLogicTests.test_admin_reschedule_notifies_assigned_workerdef test_admin_reschedule_notifies_assigned_worker(self) -> None: from app.database import SessionLocal from app.models import Notification, StaffUser admin_token = self.login_staf` (стр. 3090)
-- `BookingLogicTests.fake_send_messagedef fake_send_message(chat_id: str | int, text: str) -> None: sent_messages.append((chat_id, text))` (стр. 3129)
-- `BookingLogicTests.test_worker_start_and_completion_notify_owner_and_send_receiptdef test_worker_start_and_completion_notify_owner_and_send_receipt(self) -> None: from app.database import SessionLocal from app.models import Client, Notification self.disable_own` (стр. 3168)
-- `BookingLogicTests.fake_send_messagedef fake_send_message(chat_id: str | int, text: str) -> None: sent_messages.append((chat_id, text))` (стр. 3213)
-- `BookingLogicTests.test_client_can_store_multiple_vehiclesdef test_client_can_store_multiple_vehicles(self) -> None: token, client_id = self.login_client(name="Alice", phone="+7 (999) 111-22-33") response = self.client.patch( "/api/client` (стр. 3261)
-- `BookingLogicTests.test_owner_can_notify_admin_about_inactive_clientsdef test_owner_can_notify_admin_about_inactive_clients(self) -> None: from app.database import SessionLocal from app.models import Booking, Notification self.disable_owner_two_fact` (стр. 3298)
-- `BookingLogicTests.fake_send_messagedef fake_send_message(chat_id: str | int, text: str) -> None: sent_messages.append((chat_id, text))` (стр. 3333)
-- `BookingLogicTests.test_owner_dispatches_return_visit_reminders_to_clientsdef test_owner_dispatches_return_visit_reminders_to_clients(self) -> None: from app.database import SessionLocal from app.models import Booking, Notification self.disable_owner_two` (стр. 3353)
-- `BookingLogicTests.fake_send_messagedef fake_send_message(chat_id: str | int, text: str) -> None: sent_messages.append((chat_id, text))` (стр. 3397)
-- `BookingLogicTests.test_worker_can_submit_shift_checklists_and_owner_can_review_themdef test_worker_can_submit_shift_checklists_and_owner_can_review_them(self) -> None: from app.database import SessionLocal from app.models import Notification self.disable_owner_tw` (стр. 3427)
-- `BookingLogicTests.test_admin_shift_inspection_sends_owner_photo_and_can_be_approveddef test_admin_shift_inspection_sends_owner_photo_and_can_be_approved(self) -> None: from app.database import SessionLocal from app.models import Notification self.disable_owner_tw` (стр. 3496)
-- `BookingLogicTests.fake_send_photodef fake_send_photo(chat_id: str | int, **kwargs) -> None: sent_photos.append({"chat_id": chat_id, **kwargs})` (стр. 3516)
-- `BookingLogicTests.test_admin_shift_inspection_list_uses_photo_endpointdef test_admin_shift_inspection_list_uses_photo_endpoint(self) -> None: self.disable_owner_two_factor() owner_token = self.login_staff("owner", "owner") admin_token = self.login_st` (стр. 3552)
-- `BookingLogicTests.test_bot_can_reject_admin_shift_with_issue_notedef test_bot_can_reject_admin_shift_with_issue_note(self) -> None: from bot import BotRuntime, process_telegram_update from app.database import SessionLocal from app.models import ` (стр. 3595)
-- `BookingLogicTests.fake_telegram_calldef fake_telegram_call(_runtime, method: str, payload: dict[str, object] | None = None, **_kwargs): telegram_calls.append((method, payload or {})) return {}` (стр. 3630)
-- `BookingLogicTests.test_admin_mark_read_all_affects_only_admin_notificationsdef test_admin_mark_read_all_affects_only_admin_notifications(self) -> None: admin_token = self.login_staff("admin", "admin") owner_token = self.login_staff("owner", "owner") if Fa` (стр. 3662)
-- `BookingLogicTests.test_admin_cannot_access_owner_only_endpointsdef test_admin_cannot_access_owner_only_endpoints(self) -> None: admin_token = self.login_staff("admin", "admin") create_worker = self.client.post( "/api/workers", headers=self.aut` (стр. 3705)
-- `BookingLogicTests.test_worker_can_update_only_own_assigned_booking_status_and_notesdef test_worker_can_update_only_own_assigned_booking_status_and_notes(self) -> None: admin_token = self.login_staff("admin", "admin") worker_token = self.login_staff("ivan", "maste` (стр. 3752)
-- `BookingLogicTests.test_worker_completion_creates_admin_notification_with_amount_client_and_servicedef test_worker_completion_creates_admin_notification_with_amount_client_and_service(self) -> None: admin_token = self.login_staff("admin", "admin") worker_token = self.login_staff` (стр. 3798)
-- `BookingLogicTests.test_worker_cannot_change_time_or_workers_even_on_own_bookingdef test_worker_cannot_change_time_or_workers_even_on_own_booking(self) -> None: admin_token = self.login_staff("admin", "admin") worker_token = self.login_staff("ivan", "master") ` (стр. 3838)
-- `BookingLogicTests.test_worker_must_specify_payment_state_when_completing_bookingdef test_worker_must_specify_payment_state_when_completing_booking(self) -> None: admin_token = self.login_staff("admin", "admin") worker_token = self.login_staff("ivan", "master")` (стр. 3880)
-- `BookingLogicTests.test_worker_can_save_only_own_profiledef test_worker_can_save_only_own_profile(self) -> None: worker_token = self.login_staff("ivan", "master") worker = self.get_staff(login="ivan") other_worker = self.get_staff(login` (стр. 3933)
-- `BookingLogicTests.test_worker_can_save_only_own_notification_settingsdef test_worker_can_save_only_own_notification_settings(self) -> None: worker_token = self.login_staff("ivan", "master") worker = self.get_staff(login="ivan") other_worker = self.g` (стр. 3971)
-- `BookingLogicTests.test_worker_mark_read_all_affects_only_own_notificationsdef test_worker_mark_read_all_affects_only_own_notifications(self) -> None: self.disable_owner_two_factor() owner_token = self.login_staff("owner", "owner") worker_token = self.log` (стр. 4004)
-- `BookingLogicTests.test_worker_cannot_create_penaltiesdef test_worker_cannot_create_penalties(self) -> None: worker_token = self.login_staff("ivan", "master") other_worker = self.get_staff(login="oleg") response = self.client.post( "/` (стр. 4037)
-- `BookingLogicTests.test_worker_cannot_create_notifications_for_other_rolesdef test_worker_cannot_create_notifications_for_other_roles(self) -> None: worker_token = self.login_staff("ivan", "master") _, client_id = self.login_client(name="Alice", phone="+` (стр. 4047)
-- `BookingLogicTests.test_worker_can_create_notification_for_assigned_clientdef test_worker_can_create_notification_for_assigned_client(self) -> None: admin_token = self.login_staff("admin", "admin") worker_token = self.login_staff("ivan", "master") worker` (стр. 4062)
-- `BookingLogicTests.test_worker_can_generate_telegram_link_codedef test_worker_can_generate_telegram_link_code(self) -> None: worker_token = self.login_staff("ivan", "master") response = self.client.post( "/api/telegram/link-code", headers=sel` (стр. 4103)
-- `BookingLogicTests.test_telegram_webhook_rejects_invalid_secretdef test_telegram_webhook_rejects_invalid_secret(self) -> None: os.environ["WEBAPP_URL"] = "https://crm.example" os.environ["TELEGRAM_DELIVERY_MODE"] = "webhook" self.restart_app()` (стр. 4114)
-- `BookingLogicTests.test_telegram_webhook_processes_update_with_valid_secretdef test_telegram_webhook_processes_update_with_valid_secret(self) -> None: os.environ["WEBAPP_URL"] = "https://crm.example" os.environ["TELEGRAM_DELIVERY_MODE"] = "webhook" self.r` (стр. 4126)
-- `BookingLogicTests.test_client_bootstrap_contains_only_own_bookings_and_no_worker_directorydef test_client_bootstrap_contains_only_own_bookings_and_no_worker_directory(self) -> None: admin_token = self.login_staff("admin", "admin") first_token, first_id = self.login_clie` (стр. 4141)
-- `BookingLogicTests.test_worker_bootstrap_contains_only_assigned_bookingsdef test_worker_bootstrap_contains_only_assigned_bookings(self) -> None: admin_token = self.login_staff("admin", "admin") worker_token = self.login_staff("ivan", "master") first_wo` (стр. 4201)
-- `BookingLogicTests.test_admin_can_update_booking_alias_fields_and_service_canonical_datadef test_admin_can_update_booking_alias_fields_and_service_canonical_data(self) -> None: admin_token = self.login_staff("admin", "admin") create_response = self.client.post( "/api/` (стр. 4261)
-- `BookingLogicTests.test_owner_stock_write_off_rejects_negative_qtydef test_owner_stock_write_off_rejects_negative_qty(self) -> None: self.disable_owner_two_factor() owner_token = self.login_staff("owner", "owner") create_response = self.client.po` (стр. 4312)
-- `BookingLogicTests.test_admin_can_read_targeted_admin_notificationsdef test_admin_can_read_targeted_admin_notifications(self) -> None: self.disable_owner_two_factor() owner_token = self.login_staff("owner", "owner") admin_token = self.login_staff(` (стр. 4341)
-- `BookingLogicTests.test_deleting_client_removes_related_bookings_and_sessionsdef test_deleting_client_removes_related_bookings_and_sessions(self) -> None: admin_token = self.login_staff("admin", "admin") client_token, client_id = self.login_client(name="Ali` (стр. 4394)
-- `BookingLogicTests.test_worker_cannot_message_client_from_only_completed_bookingdef test_worker_cannot_message_client_from_only_completed_booking(self) -> None: admin_token = self.login_staff("admin", "admin") worker_token = self.login_staff("ivan", "master") ` (стр. 4431)
-- `BookingLogicTests.test_owner_database_reset_execute_requires_delay_after_approvaldef test_owner_database_reset_execute_requires_delay_after_approval(self) -> None: self.disable_owner_two_factor() self.set_primary_owner_telegram() owner_token = self.login_staff(` (стр. 4478)
-- `BookingLogicTests.fake_send_messagedef fake_send_message(chat_id: str, text: str) -> None: sent_messages.append((chat_id, text))` (стр. 4484)
-- `BookingLogicTests.test_owner_database_reset_clears_operational_data_and_preserves_ownersdef test_owner_database_reset_clears_operational_data_and_preserves_owners(self) -> None: from app.database import SessionLocal from app.models import ( AppSetting, Booking, Box, C` (стр. 4518)
-- `BookingLogicTests.fake_send_messagedef fake_send_message(chat_id: str, text: str) -> None: sent_messages.append((chat_id, text))` (стр. 4589)
-- `BookingLogicTests.test_normalize_service_and_box_resources_handles_legacy_null_box_fieldsdef test_normalize_service_and_box_resources_handles_legacy_null_box_fields(self) -> None: from app.main import DETAILING_BOX_NAME, WASH_BOX_NAMES, _normalize_service_and_box_resou` (стр. 4652)
-- `class FakeScalarResult: def __init__(self, items: list[object]) -> None: self._items = items def all(self) -> list[objec` (стр. 4656)
-- `FakeScalarResult.__init__def __init__(self, items: list[object]) -> None: self._items = items` (стр. 4657)
-- `FakeScalarResult.alldef all(self) -> list[object]: return self._items` (стр. 4660)
-- `class FakeSession: def __init__(self, services: list[Service], boxes: list[Box]) -> None: self.services = services self.` (стр. 4663)
-- `FakeSession.__init__def __init__(self, services: list[Service], boxes: list[Box]) -> None: self.services = services self.boxes = boxes self.flushed = False` (стр. 4664)
-- `FakeSession.scalarsdef scalars(self, statement): entity = statement.column_descriptions[0]["entity"] if entity is Service: return FakeScalarResult(self.services) if entity is Box: return FakeScalarRe` (стр. 4669)
-- `FakeSession.adddef add(self, _item: object) -> None: return None` (стр. 4677)
-- `FakeSession.flushdef flush(self) -> None: self.flushed = True` (стр. 4680)
+- `BookingLogicTests.test_staff_booking_inherits_referral_source_from_matched_clientdef test_staff_booking_inherits_referral_source_from_matched_client(self) -> None: admin_token = self.login_staff("admin", "admin") headers = self.auth_headers(admin_token) _, clie` (стр. 2264)
+- `BookingLogicTests.test_admin_can_save_profile_and_notification_settingsdef test_admin_can_save_profile_and_notification_settings(self) -> None: admin_token = self.login_staff("admin", "admin") profile_response = self.client.put( "/api/settings/admin/p` (стр. 2301)
+- `BookingLogicTests.test_owner_can_create_admin_like_worker_and_update_telegram_idsdef test_owner_can_create_admin_like_worker_and_update_telegram_ids(self) -> None: self.disable_owner_two_factor() owner_token = self.login_staff("owner", "owner") create_admin = s` (стр. 2341)
+- `BookingLogicTests.test_owner_can_create_and_login_accountantdef test_owner_can_create_and_login_accountant(self) -> None: self.disable_owner_two_factor() owner_token = self.login_staff("owner", "owner") create_accountant = self.client.post(` (стр. 2423)
+- `BookingLogicTests.test_owner_can_rehire_employee_with_same_telegram_after_dismissaldef test_owner_can_rehire_employee_with_same_telegram_after_dismissal(self) -> None: self.disable_owner_two_factor() owner_token = self.login_staff("owner", "owner") create_worker ` (стр. 2462)
+- `BookingLogicTests.test_admin_can_manage_master_payroll_and_private_client_ratingdef test_admin_can_manage_master_payroll_and_private_client_rating(self) -> None: admin_token = self.login_staff("admin", "admin") _, client_id = self.login_client(name="Alice", ph` (стр. 2513)
+- `BookingLogicTests.test_admin_payroll_propagates_period_and_matches_salary_base_helperdef test_admin_payroll_propagates_period_and_matches_salary_base_helper(self) -> None: from app.database import SessionLocal from app.finance import money_int, salary_base_for_peri` (стр. 2555)
+- `BookingLogicTests.test_owner_and_admin_can_see_detailed_worker_payroll_summarydef test_owner_and_admin_can_see_detailed_worker_payroll_summary(self) -> None: self.disable_owner_two_factor() owner_token = self.login_staff("owner", "owner") admin_token = self.` (стр. 2615)
+- `BookingLogicTests.test_payroll_entry_notifies_worker_and_updates_summarydef test_payroll_entry_notifies_worker_and_updates_summary(self) -> None: from app.database import SessionLocal from app.models import Notification, StaffUser self.disable_owner_tw` (стр. 2708)
+- `BookingLogicTests.fake_send_messagedef fake_send_message(chat_id: str | int, text: str) -> None: sent_messages.append((chat_id, text))` (стр. 2723)
+- `BookingLogicTests.test_admin_cannot_issue_advance_before_worker_earns_1000def test_admin_cannot_issue_advance_before_worker_earns_1000(self) -> None: admin_token = self.login_staff("admin", "admin") response = self.client.post( "/api/payroll/entries", he` (стр. 2749)
+- `BookingLogicTests._tg_headersdef _tg_headers(self, login: str, telegram_id: str) -> dict[str, str]: """Авторизация текущего флоу (Telegram init data): привязываем telegram_chat_id к сотруднику и возвращаем заг` (стр. 2765)
+- `BookingLogicTests.test_payroll_entries_with_period_are_attributed_to_selected_perioddef test_payroll_entries_with_period_are_attributed_to_selected_period(self) -> None: """Премия/штраф/списание с выбранным периодом учитываются за этот период (08.08–14.08), а не п` (стр. 2784)
+- `BookingLogicTests.test_payroll_entry_without_period_keeps_created_at_behaviordef test_payroll_entry_without_period_keeps_created_at_behavior(self) -> None: """Операция без периода (legacy) учитывается по дате создания.""" owner_headers = self._tg_headers("o` (стр. 2849)
+- `BookingLogicTests.test_owner_can_delete_payroll_entry_with_linked_budget_recordsdef test_owner_can_delete_payroll_entry_with_linked_budget_records(self) -> None: """Владелец может удалить выплату и штраф; связанные записи бюджета удаляются.""" from app.databas` (стр. 2882)
+- `BookingLogicTests.test_owner_pay_salary_attributes_payout_to_selected_perioddef test_owner_pay_salary_attributes_payout_to_selected_period(self) -> None: """Выплата мастеру тоже привязывается к выбранному периоду.""" owner_headers = self._tg_headers("owner` (стр. 2979)
+- `BookingLogicTests.test_payroll_operations_for_current_periods_fall_on_conduction_daydef test_payroll_operations_for_current_periods_fall_on_conduction_day(self) -> None: """Выплата/премия за периоды day/week/month падают реальным днём проведения, а не концом перио` (стр. 3005)
+- `BookingLogicTests.test_owner_salary_detail_lists_db_owners_without_configdef test_owner_salary_detail_lists_db_owners_without_config(self) -> None: """Доходы владельцев видны без PERMANENT_TELEGRAM_OWNERS — владельцы берутся из БД.""" owner_headers = se` (стр. 3061)
+- `BookingLogicTests.test_owner_pdf_export_returns_pdf_filedef test_owner_pdf_export_returns_pdf_file(self) -> None: self.disable_owner_two_factor() owner_token = self.login_staff("owner", "owner") response = self.client.get("/api/owner/ex` (стр. 3089)
+- `BookingLogicTests.test_owner_can_create_booking_with_assigned_master_without_platedef test_owner_can_create_booking_with_assigned_master_without_plate(self) -> None: self.disable_owner_two_factor() owner_token = self.login_staff("owner", "owner") response = self` (стр. 3098)
+- `BookingLogicTests.test_admin_reschedule_notifies_assigned_workerdef test_admin_reschedule_notifies_assigned_worker(self) -> None: from app.database import SessionLocal from app.models import Notification, StaffUser admin_token = self.login_staf` (стр. 3127)
+- `BookingLogicTests.fake_send_messagedef fake_send_message(chat_id: str | int, text: str) -> None: sent_messages.append((chat_id, text))` (стр. 3166)
+- `BookingLogicTests.test_worker_start_and_completion_notify_owner_and_send_receiptdef test_worker_start_and_completion_notify_owner_and_send_receipt(self) -> None: from app.database import SessionLocal from app.models import Client, Notification self.disable_own` (стр. 3205)
+- `BookingLogicTests.fake_send_messagedef fake_send_message(chat_id: str | int, text: str) -> None: sent_messages.append((chat_id, text))` (стр. 3250)
+- `BookingLogicTests.test_client_can_store_multiple_vehiclesdef test_client_can_store_multiple_vehicles(self) -> None: token, client_id = self.login_client(name="Alice", phone="+7 (999) 111-22-33") response = self.client.patch( "/api/client` (стр. 3298)
+- `BookingLogicTests.test_owner_can_notify_admin_about_inactive_clientsdef test_owner_can_notify_admin_about_inactive_clients(self) -> None: from app.database import SessionLocal from app.models import Booking, Notification self.disable_owner_two_fact` (стр. 3335)
+- `BookingLogicTests.fake_send_messagedef fake_send_message(chat_id: str | int, text: str) -> None: sent_messages.append((chat_id, text))` (стр. 3370)
+- `BookingLogicTests.test_owner_dispatches_return_visit_reminders_to_clientsdef test_owner_dispatches_return_visit_reminders_to_clients(self) -> None: from app.database import SessionLocal from app.models import Booking, Notification self.disable_owner_two` (стр. 3390)
+- `BookingLogicTests.fake_send_messagedef fake_send_message(chat_id: str | int, text: str) -> None: sent_messages.append((chat_id, text))` (стр. 3434)
+- `BookingLogicTests.test_worker_can_submit_shift_checklists_and_owner_can_review_themdef test_worker_can_submit_shift_checklists_and_owner_can_review_them(self) -> None: from app.database import SessionLocal from app.models import Notification self.disable_owner_tw` (стр. 3464)
+- `BookingLogicTests.test_admin_shift_inspection_sends_owner_photo_and_can_be_approveddef test_admin_shift_inspection_sends_owner_photo_and_can_be_approved(self) -> None: from app.database import SessionLocal from app.models import Notification self.disable_owner_tw` (стр. 3533)
+- `BookingLogicTests.fake_send_photodef fake_send_photo(chat_id: str | int, **kwargs) -> None: sent_photos.append({"chat_id": chat_id, **kwargs})` (стр. 3553)
+- `BookingLogicTests.test_admin_shift_inspection_list_uses_photo_endpointdef test_admin_shift_inspection_list_uses_photo_endpoint(self) -> None: self.disable_owner_two_factor() owner_token = self.login_staff("owner", "owner") admin_token = self.login_st` (стр. 3589)
+- `BookingLogicTests.test_bot_can_reject_admin_shift_with_issue_notedef test_bot_can_reject_admin_shift_with_issue_note(self) -> None: from bot import BotRuntime, process_telegram_update from app.database import SessionLocal from app.models import ` (стр. 3632)
+- `BookingLogicTests.fake_telegram_calldef fake_telegram_call(_runtime, method: str, payload: dict[str, object] | None = None, **_kwargs): telegram_calls.append((method, payload or {})) return {}` (стр. 3667)
+- `BookingLogicTests.test_admin_mark_read_all_affects_only_admin_notificationsdef test_admin_mark_read_all_affects_only_admin_notifications(self) -> None: admin_token = self.login_staff("admin", "admin") owner_token = self.login_staff("owner", "owner") if Fa` (стр. 3699)
+- `BookingLogicTests.test_admin_cannot_access_owner_only_endpointsdef test_admin_cannot_access_owner_only_endpoints(self) -> None: admin_token = self.login_staff("admin", "admin") create_worker = self.client.post( "/api/workers", headers=self.aut` (стр. 3742)
+- `BookingLogicTests.test_worker_can_update_only_own_assigned_booking_status_and_notesdef test_worker_can_update_only_own_assigned_booking_status_and_notes(self) -> None: admin_token = self.login_staff("admin", "admin") worker_token = self.login_staff("ivan", "maste` (стр. 3789)
+- `BookingLogicTests.test_worker_completion_creates_admin_notification_with_amount_client_and_servicedef test_worker_completion_creates_admin_notification_with_amount_client_and_service(self) -> None: admin_token = self.login_staff("admin", "admin") worker_token = self.login_staff` (стр. 3835)
+- `BookingLogicTests.test_worker_cannot_change_time_or_workers_even_on_own_bookingdef test_worker_cannot_change_time_or_workers_even_on_own_booking(self) -> None: admin_token = self.login_staff("admin", "admin") worker_token = self.login_staff("ivan", "master") ` (стр. 3875)
+- `BookingLogicTests.test_worker_must_specify_payment_state_when_completing_bookingdef test_worker_must_specify_payment_state_when_completing_booking(self) -> None: admin_token = self.login_staff("admin", "admin") worker_token = self.login_staff("ivan", "master")` (стр. 3917)
+- `BookingLogicTests.test_worker_can_save_only_own_profiledef test_worker_can_save_only_own_profile(self) -> None: worker_token = self.login_staff("ivan", "master") worker = self.get_staff(login="ivan") other_worker = self.get_staff(login` (стр. 3970)
+- `BookingLogicTests.test_worker_can_save_only_own_notification_settingsdef test_worker_can_save_only_own_notification_settings(self) -> None: worker_token = self.login_staff("ivan", "master") worker = self.get_staff(login="ivan") other_worker = self.g` (стр. 4008)
+- `BookingLogicTests.test_worker_mark_read_all_affects_only_own_notificationsdef test_worker_mark_read_all_affects_only_own_notifications(self) -> None: self.disable_owner_two_factor() owner_token = self.login_staff("owner", "owner") worker_token = self.log` (стр. 4041)
+- `BookingLogicTests.test_worker_cannot_create_penaltiesdef test_worker_cannot_create_penalties(self) -> None: worker_token = self.login_staff("ivan", "master") other_worker = self.get_staff(login="oleg") response = self.client.post( "/` (стр. 4074)
+- `BookingLogicTests.test_worker_cannot_create_notifications_for_other_rolesdef test_worker_cannot_create_notifications_for_other_roles(self) -> None: worker_token = self.login_staff("ivan", "master") _, client_id = self.login_client(name="Alice", phone="+` (стр. 4084)
+- `BookingLogicTests.test_worker_can_create_notification_for_assigned_clientdef test_worker_can_create_notification_for_assigned_client(self) -> None: admin_token = self.login_staff("admin", "admin") worker_token = self.login_staff("ivan", "master") worker` (стр. 4099)
+- `BookingLogicTests.test_worker_can_generate_telegram_link_codedef test_worker_can_generate_telegram_link_code(self) -> None: worker_token = self.login_staff("ivan", "master") response = self.client.post( "/api/telegram/link-code", headers=sel` (стр. 4140)
+- `BookingLogicTests.test_telegram_webhook_rejects_invalid_secretdef test_telegram_webhook_rejects_invalid_secret(self) -> None: os.environ["WEBAPP_URL"] = "https://crm.example" os.environ["TELEGRAM_DELIVERY_MODE"] = "webhook" self.restart_app()` (стр. 4151)
+- `BookingLogicTests.test_telegram_webhook_processes_update_with_valid_secretdef test_telegram_webhook_processes_update_with_valid_secret(self) -> None: os.environ["WEBAPP_URL"] = "https://crm.example" os.environ["TELEGRAM_DELIVERY_MODE"] = "webhook" self.r` (стр. 4163)
+- `BookingLogicTests.test_client_bootstrap_contains_only_own_bookings_and_no_worker_directorydef test_client_bootstrap_contains_only_own_bookings_and_no_worker_directory(self) -> None: admin_token = self.login_staff("admin", "admin") first_token, first_id = self.login_clie` (стр. 4178)
+- `BookingLogicTests.test_worker_bootstrap_contains_only_assigned_bookingsdef test_worker_bootstrap_contains_only_assigned_bookings(self) -> None: admin_token = self.login_staff("admin", "admin") worker_token = self.login_staff("ivan", "master") first_wo` (стр. 4238)
+- `BookingLogicTests.test_admin_can_update_booking_alias_fields_and_service_canonical_datadef test_admin_can_update_booking_alias_fields_and_service_canonical_data(self) -> None: admin_token = self.login_staff("admin", "admin") create_response = self.client.post( "/api/` (стр. 4298)
+- `BookingLogicTests.test_owner_stock_write_off_rejects_negative_qtydef test_owner_stock_write_off_rejects_negative_qty(self) -> None: self.disable_owner_two_factor() owner_token = self.login_staff("owner", "owner") create_response = self.client.po` (стр. 4349)
+- `BookingLogicTests.test_admin_can_read_targeted_admin_notificationsdef test_admin_can_read_targeted_admin_notifications(self) -> None: self.disable_owner_two_factor() owner_token = self.login_staff("owner", "owner") admin_token = self.login_staff(` (стр. 4378)
+- `BookingLogicTests.test_deleting_client_removes_related_bookings_and_sessionsdef test_deleting_client_removes_related_bookings_and_sessions(self) -> None: admin_token = self.login_staff("admin", "admin") client_token, client_id = self.login_client(name="Ali` (стр. 4431)
+- `BookingLogicTests.test_worker_cannot_message_client_from_only_completed_bookingdef test_worker_cannot_message_client_from_only_completed_booking(self) -> None: admin_token = self.login_staff("admin", "admin") worker_token = self.login_staff("ivan", "master") ` (стр. 4468)
+- `BookingLogicTests.test_owner_database_reset_execute_requires_delay_after_approvaldef test_owner_database_reset_execute_requires_delay_after_approval(self) -> None: self.disable_owner_two_factor() self.set_primary_owner_telegram() owner_token = self.login_staff(` (стр. 4515)
+- `BookingLogicTests.fake_send_messagedef fake_send_message(chat_id: str, text: str) -> None: sent_messages.append((chat_id, text))` (стр. 4521)
+- `BookingLogicTests.test_owner_database_reset_clears_operational_data_and_preserves_ownersdef test_owner_database_reset_clears_operational_data_and_preserves_owners(self) -> None: from app.database import SessionLocal from app.models import ( AppSetting, Booking, Box, C` (стр. 4555)
+- `BookingLogicTests.fake_send_messagedef fake_send_message(chat_id: str, text: str) -> None: sent_messages.append((chat_id, text))` (стр. 4626)
+- `BookingLogicTests.test_normalize_service_and_box_resources_handles_legacy_null_box_fieldsdef test_normalize_service_and_box_resources_handles_legacy_null_box_fields(self) -> None: from app.main import DETAILING_BOX_NAME, WASH_BOX_NAMES, _normalize_service_and_box_resou` (стр. 4689)
+- `class FakeScalarResult: def __init__(self, items: list[object]) -> None: self._items = items def all(self) -> list[objec` (стр. 4693)
+- `FakeScalarResult.__init__def __init__(self, items: list[object]) -> None: self._items = items` (стр. 4694)
+- `FakeScalarResult.alldef all(self) -> list[object]: return self._items` (стр. 4697)
+- `class FakeSession: def __init__(self, services: list[Service], boxes: list[Box]) -> None: self.services = services self.` (стр. 4700)
+- `FakeSession.__init__def __init__(self, services: list[Service], boxes: list[Box]) -> None: self.services = services self.boxes = boxes self.flushed = False` (стр. 4701)
+- `FakeSession.scalarsdef scalars(self, statement): entity = statement.column_descriptions[0]["entity"] if entity is Service: return FakeScalarResult(self.services) if entity is Box: return FakeScalarRe` (стр. 4706)
+- `FakeSession.adddef add(self, _item: object) -> None: return None` (стр. 4714)
+- `FakeSession.flushdef flush(self) -> None: self.flushed = True` (стр. 4717)
 
 ### backend/tests/test_booking_main_outsource.py (469 строк)
 
@@ -4005,208 +4007,208 @@ concept1.0/
 - `App` (стр. 737)
 - `path` (стр. 739) — локальный
 
-### frontend/src/app/components/admin/AdminApp.tsx (3806 строк)
+### frontend/src/app/components/admin/AdminApp.tsx (3805 строк)
 
-- `stockCategoryIdsWithDescendants` (стр. 58) — локальный
-- `map` (стр. 59) — локальный
-- `queue` (стр. 66) — локальный
-- `visited` (стр. 67) — локальный
-- `cur` (стр. 69) — локальный
-- `children` (стр. 72) — локальный
-- `SERVICE_TYPE_OPTIONS` (стр. 112) — локальный
-- `adminServiceResourceGroupForCategory` (стр. 118) — локальный
-- `DEFAULT_SHIFT_SUPPLIES` (стр. 130) — локальный
-- `SHIFT_PHOTO_CATEGORIES` (стр. 136) — локальный
-- `SHIFT_PHOTO_MAX_DIMENSION` (стр. 153) — локальный
-- `SHIFT_PHOTO_TARGET_BYTES` (стр. 154) — локальный
-- `SHIFT_PHOTO_MIN_QUALITY` (стр. 155) — локальный
-- `isWriteOffNote` (стр. 167) — локальный
-- `payrollKindLabel` (стр. 168) — локальный
-- `STOCK_UNITS` (стр. 179) — локальный
-- `isDetailingService` (стр. 180) — локальный
-- `serviceResourceGroup` (стр. 184) — локальный
-- `hasManualScheduling` (стр. 188) — локальный
-- `bookingBoxesForService` (стр. 192) — локальный
-- `bookingLocationLabel` (стр. 200) — локальный
-- `parseBookingMinutes` (стр. 204) — локальный
-- `match` (стр. 205) — локальный
-- `hours` (стр. 207) — локальный
-- `minutes` (стр. 208) — локальный
-- `bookingBlocksBox` (стр. 213) — локальный
-- `nextStart` (стр. 216) — локальный
-- `existingStart` (стр. 217) — локальный
-- `nextEnd` (стр. 219) — локальный
-- `existingEnd` (стр. 220) — локальный
-- `pickDefaultBookingBox` (стр. 224) — локальный
-- `resourceGroup` (стр. 233) — локальный
-- `preferred` (стр. 234) — локальный
-- `fallback` (стр. 235) — локальный
-- `candidates` (стр. 236) — локальный
-- `paymentLabel` (стр. 241) — локальный
-- `normalizePhoneSearchValue` (стр. 250) — локальный
-- `bookingStatusRequiresScheduledSlot` (стр. 254) — локальный
-- `numberInputValue` (стр. 258) — локальный
-- `numberFromInput` (стр. 262) — локальный
-- `toISODate` (стр. 266) — локальный
-- `parsed` (стр. 267) — локальный
-- `y` (стр. 269) — локальный
-- `m` (стр. 270) — локальный
-- `d` (стр. 271) — локальный
-- `TIME_SLOTS` (стр. 275) — локальный
-- `h` (стр. 276) — локальный
-- `m` (стр. 277) — локальный
-- `formatSlotMinutesLabel` (стр. 281) — локальный
-- `safe` (стр. 282) — локальный
-- `dayShift` (стр. 283) — локальный
-- `minutesOfDay` (стр. 284) — локальный
-- `label` (стр. 285) — локальный
-- `dataUrlApproxBytes` (стр. 289) — локальный
-- `padding` (стр. 291) — локальный
-- `loadImage` (стр. 295) — локальный
-- `image` (стр. 297) — локальный
-- `compressShiftPhoto` (стр. 304) — локальный
-- `objectUrl` (стр. 305) — локальный
-- `image` (стр. 307) — локальный
-- `scale` (стр. 308) — локальный
-- `width` (стр. 309) — локальный
-- `height` (стр. 310) — локальный
-- `canvas` (стр. 311) — локальный
-- `context` (стр. 314) — локальный
-- `AdminApp` (стр. 332)
-- `parentCategories` (стр. 406) — локальный
-- `outsourcersApi` (стр. 429) — локальный
-- `selectableBookingDates` (стр. 489) — локальный
-- `masterWorkers` (стр. 495) — локальный
-- `selectedClient` (стр. 496) — локальный
-- `normalizedClientSearchQuery` (стр. 497) — локальный
-- `filteredClients` (стр. 500) — локальный
-- `plates` (стр. 505) — локальный
-- `selectedClientBookings` (стр. 513) — локальный
-- `leftDate` (стр. 517) — локальный
-- `rightDate` (стр. 518) — локальный
-- `selectedClientFilteredBookings` (стр. 523) — локальный
-- `svc` (стр. 525) — локальный
-- `selectedClientVehicles` (стр. 529) — локальный
-- `newBookingClientVehicles` (стр. 533) — локальный
-- `client` (стр. 535) — локальный
-- `selectedClientSpent` (стр. 541) — локальный
-- `selectedClientCompletedCount` (стр. 544) — локальный
-- `selectedClientUpcoming` (стр. 545) — локальный
-- `selectedClientLastVisit` (стр. 546) — локальный
-- `shiftSupplies` (стр. 547) — локальный
-- `uploadedShiftPhotos` (стр. 552) — локальный
-- `selectedService` (стр. 565) — локальный
-- `defaultBoxForService` (стр. 583) — локальный
-- `settingsBoxes` (стр. 595) — локальный
-- `bookingFormBoxes` (стр. 596) — локальный
-- `editBookingBoxes` (стр. 597) — локальный
-- `newBookingLocationLabel` (стр. 600) — локальный
-- `editBookingLocationLabel` (стр. 601) — локальный
-- `modalMaxHeight` (стр. 653) — локальный
-- `vv` (стр. 657) — локальный
-- `handler` (стр. 659) — локальный
-- `el` (стр. 660) — локальный
-- `staffRoleTitle` (стр. 673) — локальный
-- `staffNotificationsRole` (стр. 674) — локальный
-- `adminNotifications` (стр. 675) — локальный
-- `unreadCount` (стр. 680) — локальный
-- `todayBookings` (стр. 681) — локальный
-- `completedAll` (стр. 682) — локальный
-- `totalRevenue` (стр. 683) — локальный
-- `glass` (стр. 685) — локальный
-- `bg` (стр. 686) — локальный
-- `text` (стр. 687) — локальный
-- `sub` (стр. 688) — локальный
-- `primary` (стр. 689) — локальный
-- `accent` (стр. 690) — локальный
-- `surface` (стр. 691) — локальный
-- `inputCls` (стр. 692) — локальный
-- `selectCls` (стр. 693) — локальный
-- `timeToMinutes` (стр. 694) — локальный
-- `match` (стр. 695) — локальный
-- `hours` (стр. 697) — локальный
-- `minutes` (стр. 698) — локальный
-- `byService` (стр. 704) — локальный
-- `byStatus` (стр. 710) — локальный
-- `byPayment` (стр. 721) — локальный
-- `workerStats` (стр. 728) — локальный
-- `bw` (стр. 734) — локальный
-- `addTotal` (стр. 737) — локальный
-- `legacyTotal` (стр. 738) — локальный
-- `base` (стр. 739) — локальный
-- `avgCheck` (стр. 744) — локальный
-- `conversionRate` (стр. 745) — локальный
-- `scheduleSummary` (стр. 746) — локальный
-- `revenueData` (стр. 747) — локальный
-- `formatted` (стр. 748) — локальный
-- `hourData` (стр. 754) — локальный
-- `handleStatusChange` (стр. 758) — локальный
-- `target` (стр. 759) — локальный
-- `statusNeedsSlot` (стр. 760) — локальный
-- `handleDeleteClient` (стр. 780) — локальный
-- `confirmed` (стр. 781) — локальный
-- `handleCreateClient` (стр. 786) — локальный
-- `nameError` (стр. 788) — локальный
-- `phoneError` (стр. 792) — локальный
-- `carError` (стр. 796) — локальный
-- `plateError` (стр. 800) — локальный
-- `created` (стр. 808) — локальный
-- `handleSaveClientCard` (стр. 830) — локальный
-- `draft` (стр. 831) — локальный
-- `handleShiftPhotoChange` (стр. 845) — локальный
-- `file` (стр. 846) — локальный
-- `dataUrl` (стр. 850) — локальный
-- `handleSubmitShiftInspection` (стр. 862) — локальный
-- `primaryPhoto` (стр. 866) — локальный
-- `uploadedCategoriesLabel` (стр. 873) — локальный
-- `composedNote` (стр. 874) — локальный
-- `saved` (стр. 878) — локальный
-- `validateClientName` (стр. 895) — локальный
-- `validateClientPhone` (стр. 899) — локальный
-- `validateBookingDate` (стр. 903) — локальный
-- `parsedDate` (стр. 905) — локальный
-- `scheduleDay` (стр. 910) — локальный
-- `normalizedTime` (стр. 915) — локальный
-- `slotStart` (стр. 916) — локальный
-- `openMinutes` (стр. 925) — локальный
-- `closeMinutes` (стр. 926) — локальный
-- `slotEnd` (стр. 927) — локальный
-- `validateBookingDateForEdit` (стр. 940) — локальный
-- `parsedDate` (стр. 942) — локальный
-- `scheduleDay` (стр. 947) — локальный
-- `normalizedTime` (стр. 952) — локальный
-- `slotStart` (стр. 953) — локальный
-- `openMinutes` (стр. 959) — локальный
-- `closeMinutes` (стр. 960) — локальный
-- `slotEnd` (стр. 961) — локальный
-- `validateBookingDateTimeFormat` (стр. 973) — локальный
-- `parsedDate` (стр. 975) — локальный
-- `validateNewBookingForm` (стр. 988) — локальный
-- `selectedService` (стр. 990) — локальный
-- `nameError` (стр. 992) — локальный
-- `phoneError` (стр. 996) — локальный
-- `carError` (стр. 1000) — локальный
-- `plateError` (стр. 1004) — локальный
-- `hasDate` (стр. 1007) — локальный
-- `hasTime` (стр. 1008) — локальный
-- `requiresScheduledSlot` (стр. 1009) — локальный
-- `validation` (стр. 1026) — локальный
-- `resetNewBookingDraft` (стр. 1036) — локальный
-- `openNewBookingModal` (стр. 1067) — локальный
-- `openAdditionalServiceModal` (стр. 1072) — локальный
-- `openNewBookingForClient` (стр. 1081) — локальный
-- `historyDate` (стр. 1083) — локальный
-- `clientVehicles` (стр. 1085) — локальный
-- `mainVehicle` (стр. 1087) — локальный
-- `hasPriorVisits` (стр. 1088) — локальный
-- `closeNewBookingModal` (стр. 1106) — локальный
-- `handleAddService` (стр. 1111) — локальный
-- `svc` (стр. 1116) — локальный
-- `workersList` (стр. 1118) — локальный
-- `worker` (стр. 1119) — локальный
-- `updatedBooking` (стр. 1122) — локальный
-- `handleRemoveService` (стр. 1143) — локальный
-- `handleCreateServiceFromQuery` (стр. 1147) — локальный
+- `stockCategoryIdsWithDescendants` (стр. 60) — локальный
+- `map` (стр. 61) — локальный
+- `queue` (стр. 68) — локальный
+- `visited` (стр. 69) — локальный
+- `cur` (стр. 71) — локальный
+- `children` (стр. 74) — локальный
+- `SERVICE_TYPE_OPTIONS` (стр. 114) — локальный
+- `adminServiceResourceGroupForCategory` (стр. 120) — локальный
+- `DEFAULT_SHIFT_SUPPLIES` (стр. 132) — локальный
+- `SHIFT_PHOTO_CATEGORIES` (стр. 138) — локальный
+- `SHIFT_PHOTO_MAX_DIMENSION` (стр. 155) — локальный
+- `SHIFT_PHOTO_TARGET_BYTES` (стр. 156) — локальный
+- `SHIFT_PHOTO_MIN_QUALITY` (стр. 157) — локальный
+- `isWriteOffNote` (стр. 169) — локальный
+- `payrollKindLabel` (стр. 170) — локальный
+- `STOCK_UNITS` (стр. 181) — локальный
+- `isDetailingService` (стр. 182) — локальный
+- `serviceResourceGroup` (стр. 186) — локальный
+- `hasManualScheduling` (стр. 190) — локальный
+- `bookingBoxesForService` (стр. 194) — локальный
+- `bookingLocationLabel` (стр. 202) — локальный
+- `parseBookingMinutes` (стр. 206) — локальный
+- `match` (стр. 207) — локальный
+- `hours` (стр. 209) — локальный
+- `minutes` (стр. 210) — локальный
+- `bookingBlocksBox` (стр. 215) — локальный
+- `nextStart` (стр. 218) — локальный
+- `existingStart` (стр. 219) — локальный
+- `nextEnd` (стр. 221) — локальный
+- `existingEnd` (стр. 222) — локальный
+- `pickDefaultBookingBox` (стр. 226) — локальный
+- `resourceGroup` (стр. 235) — локальный
+- `preferred` (стр. 236) — локальный
+- `fallback` (стр. 237) — локальный
+- `candidates` (стр. 238) — локальный
+- `paymentLabel` (стр. 243) — локальный
+- `normalizePhoneSearchValue` (стр. 252) — локальный
+- `bookingStatusRequiresScheduledSlot` (стр. 256) — локальный
+- `numberInputValue` (стр. 260) — локальный
+- `numberFromInput` (стр. 264) — локальный
+- `toISODate` (стр. 268) — локальный
+- `parsed` (стр. 269) — локальный
+- `y` (стр. 271) — локальный
+- `m` (стр. 272) — локальный
+- `d` (стр. 273) — локальный
+- `TIME_SLOTS` (стр. 277) — локальный
+- `h` (стр. 278) — локальный
+- `m` (стр. 279) — локальный
+- `formatSlotMinutesLabel` (стр. 283) — локальный
+- `safe` (стр. 284) — локальный
+- `dayShift` (стр. 285) — локальный
+- `minutesOfDay` (стр. 286) — локальный
+- `label` (стр. 287) — локальный
+- `dataUrlApproxBytes` (стр. 291) — локальный
+- `padding` (стр. 293) — локальный
+- `loadImage` (стр. 297) — локальный
+- `image` (стр. 299) — локальный
+- `compressShiftPhoto` (стр. 306) — локальный
+- `objectUrl` (стр. 307) — локальный
+- `image` (стр. 309) — локальный
+- `scale` (стр. 310) — локальный
+- `width` (стр. 311) — локальный
+- `height` (стр. 312) — локальный
+- `canvas` (стр. 313) — локальный
+- `context` (стр. 316) — локальный
+- `AdminApp` (стр. 334)
+- `parentCategories` (стр. 408) — локальный
+- `outsourcersApi` (стр. 431) — локальный
+- `selectableBookingDates` (стр. 491) — локальный
+- `masterWorkers` (стр. 497) — локальный
+- `selectedClient` (стр. 498) — локальный
+- `normalizedClientSearchQuery` (стр. 499) — локальный
+- `filteredClients` (стр. 502) — локальный
+- `plates` (стр. 507) — локальный
+- `selectedClientBookings` (стр. 515) — локальный
+- `leftDate` (стр. 519) — локальный
+- `rightDate` (стр. 520) — локальный
+- `selectedClientFilteredBookings` (стр. 525) — локальный
+- `svc` (стр. 527) — локальный
+- `selectedClientVehicles` (стр. 531) — локальный
+- `newBookingClient` (стр. 535) — локальный
+- `newBookingClientVehicles` (стр. 536) — локальный
+- `client` (стр. 538) — локальный
+- `selectedClientSpent` (стр. 544) — локальный
+- `selectedClientCompletedCount` (стр. 547) — локальный
+- `selectedClientUpcoming` (стр. 548) — локальный
+- `selectedClientLastVisit` (стр. 549) — локальный
+- `shiftSupplies` (стр. 550) — локальный
+- `uploadedShiftPhotos` (стр. 555) — локальный
+- `selectedService` (стр. 568) — локальный
+- `defaultBoxForService` (стр. 586) — локальный
+- `settingsBoxes` (стр. 598) — локальный
+- `bookingFormBoxes` (стр. 599) — локальный
+- `editBookingBoxes` (стр. 600) — локальный
+- `newBookingLocationLabel` (стр. 603) — локальный
+- `editBookingLocationLabel` (стр. 604) — локальный
+- `modalMaxHeight` (стр. 656) — локальный
+- `vv` (стр. 660) — локальный
+- `handler` (стр. 662) — локальный
+- `el` (стр. 663) — локальный
+- `staffRoleTitle` (стр. 676) — локальный
+- `staffNotificationsRole` (стр. 677) — локальный
+- `adminNotifications` (стр. 678) — локальный
+- `unreadCount` (стр. 683) — локальный
+- `todayBookings` (стр. 684) — локальный
+- `completedAll` (стр. 685) — локальный
+- `totalRevenue` (стр. 686) — локальный
+- `glass` (стр. 688) — локальный
+- `bg` (стр. 689) — локальный
+- `text` (стр. 690) — локальный
+- `sub` (стр. 691) — локальный
+- `primary` (стр. 692) — локальный
+- `accent` (стр. 693) — локальный
+- `surface` (стр. 694) — локальный
+- `inputCls` (стр. 695) — локальный
+- `selectCls` (стр. 696) — локальный
+- `timeToMinutes` (стр. 697) — локальный
+- `match` (стр. 698) — локальный
+- `hours` (стр. 700) — локальный
+- `minutes` (стр. 701) — локальный
+- `byService` (стр. 707) — локальный
+- `byStatus` (стр. 713) — локальный
+- `byPayment` (стр. 724) — локальный
+- `workerStats` (стр. 731) — локальный
+- `bw` (стр. 737) — локальный
+- `addTotal` (стр. 740) — локальный
+- `legacyTotal` (стр. 741) — локальный
+- `base` (стр. 742) — локальный
+- `avgCheck` (стр. 747) — локальный
+- `conversionRate` (стр. 748) — локальный
+- `scheduleSummary` (стр. 749) — локальный
+- `revenueData` (стр. 750) — локальный
+- `formatted` (стр. 751) — локальный
+- `hourData` (стр. 757) — локальный
+- `handleStatusChange` (стр. 761) — локальный
+- `target` (стр. 762) — локальный
+- `statusNeedsSlot` (стр. 763) — локальный
+- `handleDeleteClient` (стр. 783) — локальный
+- `confirmed` (стр. 784) — локальный
+- `handleCreateClient` (стр. 789) — локальный
+- `nameError` (стр. 791) — локальный
+- `phoneError` (стр. 795) — локальный
+- `carError` (стр. 799) — локальный
+- `plateError` (стр. 803) — локальный
+- `created` (стр. 811) — локальный
+- `handleSaveClientCard` (стр. 833) — локальный
+- `draft` (стр. 834) — локальный
+- `handleShiftPhotoChange` (стр. 848) — локальный
+- `file` (стр. 849) — локальный
+- `dataUrl` (стр. 853) — локальный
+- `handleSubmitShiftInspection` (стр. 865) — локальный
+- `primaryPhoto` (стр. 869) — локальный
+- `uploadedCategoriesLabel` (стр. 876) — локальный
+- `composedNote` (стр. 877) — локальный
+- `saved` (стр. 881) — локальный
+- `validateClientName` (стр. 898) — локальный
+- `validateClientPhone` (стр. 902) — локальный
+- `validateBookingDate` (стр. 906) — локальный
+- `parsedDate` (стр. 908) — локальный
+- `scheduleDay` (стр. 913) — локальный
+- `normalizedTime` (стр. 918) — локальный
+- `slotStart` (стр. 919) — локальный
+- `openMinutes` (стр. 928) — локальный
+- `closeMinutes` (стр. 929) — локальный
+- `slotEnd` (стр. 930) — локальный
+- `validateBookingDateForEdit` (стр. 943) — локальный
+- `parsedDate` (стр. 945) — локальный
+- `scheduleDay` (стр. 950) — локальный
+- `normalizedTime` (стр. 955) — локальный
+- `slotStart` (стр. 956) — локальный
+- `openMinutes` (стр. 962) — локальный
+- `closeMinutes` (стр. 963) — локальный
+- `slotEnd` (стр. 964) — локальный
+- `validateBookingDateTimeFormat` (стр. 976) — локальный
+- `parsedDate` (стр. 978) — локальный
+- `validateNewBookingForm` (стр. 991) — локальный
+- `selectedService` (стр. 993) — локальный
+- `nameError` (стр. 995) — локальный
+- `phoneError` (стр. 999) — локальный
+- `carError` (стр. 1003) — локальный
+- `plateError` (стр. 1007) — локальный
+- `hasDate` (стр. 1010) — локальный
+- `hasTime` (стр. 1011) — локальный
+- `requiresScheduledSlot` (стр. 1012) — локальный
+- `validation` (стр. 1029) — локальный
+- `resetNewBookingDraft` (стр. 1039) — локальный
+- `openNewBookingModal` (стр. 1071) — локальный
+- `openAdditionalServiceModal` (стр. 1076) — локальный
+- `openNewBookingForClient` (стр. 1085) — локальный
+- `historyDate` (стр. 1087) — локальный
+- `clientVehicles` (стр. 1089) — локальный
+- `mainVehicle` (стр. 1091) — локальный
+- `hasPriorVisits` (стр. 1092) — локальный
+- `closeNewBookingModal` (стр. 1109) — локальный
+- `handleAddService` (стр. 1114) — локальный
+- `svc` (стр. 1119) — локальный
+- `workersList` (стр. 1121) — локальный
+- `worker` (стр. 1122) — локальный
+- `updatedBooking` (стр. 1125) — локальный
+- `handleRemoveService` (стр. 1146) — локальный
 
 ### frontend/src/app/components/admin/ContentEditor.tsx (441 строк)
 
@@ -4927,208 +4929,208 @@ concept1.0/
 - `totals` (стр. 145) — локальный
 - `isRealCard` (стр. 154) — локальный
 
-### frontend/src/app/components/owner/OwnerApp.tsx (13888 строк)
+### frontend/src/app/components/owner/OwnerApp.tsx (13892 строк)
 
-- `stockCategoryIdsWithDescendants` (стр. 54) — локальный
-- `map` (стр. 55) — локальный
-- `queue` (стр. 58) — локальный
-- `visited` (стр. 59) — локальный
-- `EXPENSE_CATEGORIES` (стр. 332) — локальный
-- `STOCK_UNITS` (стр. 343) — локальный
-- `SERVICE_TYPE_OPTIONS` (стр. 344) — локальный
-- `ownerBookingStatusRequiresScheduledSlot` (стр. 355) — локальный
-- `employeeRoleLabel` (стр. 358) — локальный
-- `ownerServiceResourceGroup` (стр. 364) — локальный
-- `ownerBookingBoxes` (стр. 368) — локальный
-- `ownerLocationLabel` (стр. 376) — локальный
-- `parseOwnerBookingMinutes` (стр. 380) — локальный
-- `match` (стр. 381) — локальный
-- `hours` (стр. 383) — локальный
-- `minutes` (стр. 384) — локальный
-- `formatSlotMinutesLabel` (стр. 389) — локальный
-- `safe` (стр. 390) — локальный
-- `dayShift` (стр. 391) — локальный
-- `minutesOfDay` (стр. 392) — локальный
-- `label` (стр. 393) — локальный
-- `OWNER_CALENDAR_WEEKDAYS` (стр. 397) — локальный
-- `OWNER_CALENDAR_MONTHS` (стр. 398) — локальный
-- `OWNER_CALENDAR_DEFAULT_OPEN` (стр. 402) — локальный
-- `OWNER_CALENDAR_DEFAULT_CLOSE` (стр. 403) — локальный
-- `ownerScheduleTimeToMinutes` (стр. 405) — локальный
-- `ownerMonthTitle` (стр. 409) — локальный
-- `ownerBuildMonthCells` (стр. 413) — локальный
-- `year` (стр. 414) — локальный
-- `month` (стр. 415) — локальный
-- `first` (стр. 416) — локальный
-- `offset` (стр. 417) — локальный
-- `daysInMonth` (стр. 418) — локальный
-- `date` (стр. 424) — локальный
-- `ownerCalendarDayHours` (стр. 433) — локальный
-- `parsedDate` (стр. 434) — локальный
-- `daySchedule` (стр. 438) — локальный
-- `open` (стр. 442) — локальный
-- `close` (стр. 443) — локальный
-- `OWNER_CALENDAR_LOAD_COLORS` (стр. 447) — локальный
-- `ownerCalendarLoadTone` (стр. 453) — локальный
-- `ratio` (стр. 455) — локальный
-- `ownerGroupBookingsByHour` (стр. 465) — локальный
-- `timed` (стр. 470) — локальный
-- `hourLabel` (стр. 473) — локальный
-- `slotEnd` (стр. 474) — локальный
-- `slotBookings` (стр. 475) — локальный
-- `start` (стр. 477) — локальный
-- `ownerOpenBookingDetail` (стр. 489) — локальный
-- `piggyDepositLabel` (стр. 500) — локальный
-- `p` (стр. 501) — локальный
-- `pct` (стр. 504) — локальный
-- `ownerBookingBlocksBox` (стр. 511) — локальный
-- `nextStart` (стр. 514) — локальный
-- `existingStart` (стр. 515) — локальный
-- `nextEnd` (стр. 517) — локальный
-- `existingEnd` (стр. 518) — локальный
-- `ownerPickDefaultBookingBox` (стр. 522) — локальный
-- `resourceGroup` (стр. 531) — локальный
-- `preferred` (стр. 532) — локальный
-- `fallback` (стр. 533) — локальный
-- `candidates` (стр. 534) — локальный
-- `serviceResourceGroupForCategory` (стр. 539) — локальный
-- `numberInputValue` (стр. 543) — локальный
-- `defaultPiggyGroup` (стр. 559) — локальный
-- `rg` (стр. 560) — локальный
-- `ORDER_STEPS` (стр. 565) — локальный
-- `serviceMoneySummary` (стр. 587) — локальный
-- `piggyTargetLabel` (стр. 588) — локальный
-- `master` (стр. 592) — локальный
-- `piggy` (стр. 597) — локальный
-- `owners` (стр. 608) — локальный
-- `previewServiceSplit` (стр. 616) — локальный
-- `materials` (стр. 621) — локальный
-- `net` (стр. 622) — локальный
-- `order` (стр. 623) — локальный
-- `pipeline` (стр. 624) — локальный
-- `piggyType` (стр. 625) — локальный
-- `computeMaster` (стр. 632) — локальный
-- `cap` (стр. 634) — локальный
-- `computePiggy` (стр. 643) — локальный
-- `grp` (стр. 648) — локальный
-- `m` (стр. 653) — локальный
-- `p` (стр. 655) — локальный
-- `afterMasterPiggy` (стр. 660) — локальный
-- `m` (стр. 679) — локальный
-- `p` (стр. 683) — локальный
-- `claimed` (стр. 688) — локальный
-- `numberFromInput` (стр. 714) — локальный
-- `parseDecimalInput` (стр. 719) — локальный
-- `normalized` (стр. 720) — локальный
-- `parsed` (стр. 721) — локальный
-- `isValidAmountInput` (стр. 725) — локальный
-- `n` (стр. 726) — локальный
-- `toISODate` (стр. 730) — локальный
-- `parsed` (стр. 731) — локальный
-- `y` (стр. 733) — локальный
-- `m` (стр. 734) — локальный
-- `d` (стр. 735) — локальный
-- `TIME_SLOTS` (стр. 739) — локальный
-- `h` (стр. 740) — локальный
-- `m` (стр. 741) — локальный
-- `OwnerPayoutWeightsEditor` (стр. 748) — локальный
-- `total` (стр. 766) — локальный
-- `save` (стр. 767) — локальный
-- `body` (стр. 771) — локальный
-- `saved` (стр. 776) — локальный
-- `w` (стр. 800) — локальный
-- `share` (стр. 801) — локальный
-- `OwnerApp` (стр. 833)
-- `isAccountant` (стр. 903) — локальный
-- `modalMaxHeight` (стр. 904) — локальный
-- `financeRoleTitle` (стр. 905) — локальный
-- `financeNotificationRole` (стр. 906) — локальный
-- `__nowRpt` (стр. 989) — локальный
-- `__dowRpt` (стр. 990) — локальный
-- `__monRpt` (стр. 991) — локальный
-- `__sunRpt` (стр. 992) — локальный
-- `newPayRequestId` (стр. 1007) — локальный
-- `piggyWithdrawRequestIdRef` (стр. 1016) — локальный
-- `piggyAdjustRequestIdRef` (стр. 1018) — локальный
-- `piggyDepositRequestIdRef` (стр. 1019) — локальный
-- `entryRequestIdRef` (стр. 1072) — локальный
-- `salaryBookingsRef` (стр. 1089) — локальный
-- `salaryPayoutRef` (стр. 1090) — локальный
-- `salaryHistoryRef` (стр. 1091) — локальный
-- `flashSalaryForm` (стр. 1093) — локальный
-- `el` (стр. 1096) — локальный
-- `input` (стр. 1099) — локальный
-- `outsourcersApi` (стр. 1110) — локальный
-- `today` (стр. 1246) — локальный
-- `previewDraftRef` (стр. 1275) — локальный
-- `simDraftRef` (стр. 1276) — локальный
-- `addSimDop` (стр. 1289) — локальный
-- `patchSimDop` (стр. 1294) — локальный
-- `removeSimDop` (стр. 1296) — локальный
-- `pd` (стр. 1299) — локальный
-- `sd` (стр. 1304) — локальный
-- `t` (стр. 1310) — локальный
-- `clearOwnerResetFlow` (стр. 1424) — локальный
-- `nextBoxes` (стр. 1447) — локальный
-- `params` (стр. 1485) — локальный
-- `params` (стр. 1500) — локальный
-- `handlePayOwnerSalary` (стр. 1511) — локальный
-- `amount` (стр. 1512) — локальный
-- `updated` (стр. 1531) — локальный
-- `handleToggleOwnerMasterRole` (стр. 1539) — локальный
-- `params` (стр. 1544) — локальный
-- `updated` (стр. 1549) — локальный
-- `loadPiggyBank` (стр. 1560) — локальный
-- `params` (стр. 1564) — локальный
-- `qs` (стр. 1567) — локальный
-- `data` (стр. 1569) — локальный
-- `loadWallet` (стр. 1577) — локальный
-- `params` (стр. 1581) — локальный
-- `qs` (стр. 1584) — локальный
-- `data` (стр. 1586) — локальный
-- `handlePiggyWithdraw` (стр. 1592) — локальный
-- `f` (стр. 1593) — локальный
-- `amount` (стр. 1596) — локальный
-- `buyerLabel` (стр. 1628) — локальный
-- `segmentLabel` (стр. 1631) — локальный
-- `toastMsg` (стр. 1632) — локальный
-- `openPiggyWithdraw` (стр. 1647) — локальный
-- `handlePiggyBankExport` (стр. 1654) — локальный
-- `openPiggyAdjust` (стр. 1665) — локальный
-- `current` (стр. 1666) — локальный
-- `currentPrecise` (стр. 1670) — локальный
-- `handlePiggyAdjust` (стр. 1678) — локальный
-- `newBalance` (стр. 1679) — локальный
-- `delta` (стр. 1682) — локальный
-- `openPiggyDeposit` (стр. 1719) — локальный
-- `handlePiggyDeposit` (стр. 1725) — локальный
-- `amount` (стр. 1726) — локальный
-- `target` (стр. 1729) — локальный
-- `handlePiggyDeleteTx` (стр. 1757) — локальный
-- `syncCountdown` (стр. 1816) — локальный
-- `diffMs` (стр. 1817) — локальный
-- `intervalId` (стр. 1822) — локальный
-- `handleOpenShiftForMasters` (стр. 1852) — локальный
-- `saved` (стр. 1861) — локальный
-- `ownerNotifications` (стр. 1877) — локальный
-- `unreadCount` (стр. 1878) — локальный
-- `completedBookings` (стр. 1879) — локальный
-- `todayBookings` (стр. 1880) — локальный
-- `activeMasters` (стр. 1882) — локальный
-- `broadcastTargets` (стр. 1886) — локальный
-- `masterCameOutTodayAt` (стр. 1891) — локальный
-- `times` (стр. 1892) — локальный
-- `mastersCameOutToday` (стр. 1901) — локальный
-- `vv` (стр. 1905) — локальный
-- `handler` (стр. 1907) — локальный
-- `el` (стр. 1908) — локальный
-- `bookingFormBoxes` (стр. 1915) — локальный
-- `bookingFormLocationLabel` (стр. 1916) — локальный
-- `editBookingLocationLabel` (стр. 1917) — локальный
-- `todayRevenue` (стр. 1918) — локальный
-- `now` (стр. 1921) — локальный
-- `dayOfWeek` (стр. 1922) — локальный
-- `diffToSaturday` (стр. 1923) — локальный
+- `stockCategoryIdsWithDescendants` (стр. 56) — локальный
+- `map` (стр. 57) — локальный
+- `queue` (стр. 60) — локальный
+- `visited` (стр. 61) — локальный
+- `EXPENSE_CATEGORIES` (стр. 334) — локальный
+- `STOCK_UNITS` (стр. 345) — локальный
+- `SERVICE_TYPE_OPTIONS` (стр. 346) — локальный
+- `ownerBookingStatusRequiresScheduledSlot` (стр. 357) — локальный
+- `employeeRoleLabel` (стр. 360) — локальный
+- `ownerServiceResourceGroup` (стр. 366) — локальный
+- `ownerBookingBoxes` (стр. 370) — локальный
+- `ownerLocationLabel` (стр. 378) — локальный
+- `parseOwnerBookingMinutes` (стр. 382) — локальный
+- `match` (стр. 383) — локальный
+- `hours` (стр. 385) — локальный
+- `minutes` (стр. 386) — локальный
+- `formatSlotMinutesLabel` (стр. 391) — локальный
+- `safe` (стр. 392) — локальный
+- `dayShift` (стр. 393) — локальный
+- `minutesOfDay` (стр. 394) — локальный
+- `label` (стр. 395) — локальный
+- `OWNER_CALENDAR_WEEKDAYS` (стр. 399) — локальный
+- `OWNER_CALENDAR_MONTHS` (стр. 400) — локальный
+- `OWNER_CALENDAR_DEFAULT_OPEN` (стр. 404) — локальный
+- `OWNER_CALENDAR_DEFAULT_CLOSE` (стр. 405) — локальный
+- `ownerScheduleTimeToMinutes` (стр. 407) — локальный
+- `ownerMonthTitle` (стр. 411) — локальный
+- `ownerBuildMonthCells` (стр. 415) — локальный
+- `year` (стр. 416) — локальный
+- `month` (стр. 417) — локальный
+- `first` (стр. 418) — локальный
+- `offset` (стр. 419) — локальный
+- `daysInMonth` (стр. 420) — локальный
+- `date` (стр. 426) — локальный
+- `ownerCalendarDayHours` (стр. 435) — локальный
+- `parsedDate` (стр. 436) — локальный
+- `daySchedule` (стр. 440) — локальный
+- `open` (стр. 444) — локальный
+- `close` (стр. 445) — локальный
+- `OWNER_CALENDAR_LOAD_COLORS` (стр. 449) — локальный
+- `ownerCalendarLoadTone` (стр. 455) — локальный
+- `ratio` (стр. 457) — локальный
+- `ownerGroupBookingsByHour` (стр. 467) — локальный
+- `timed` (стр. 472) — локальный
+- `hourLabel` (стр. 475) — локальный
+- `slotEnd` (стр. 476) — локальный
+- `slotBookings` (стр. 477) — локальный
+- `start` (стр. 479) — локальный
+- `ownerOpenBookingDetail` (стр. 491) — локальный
+- `piggyDepositLabel` (стр. 502) — локальный
+- `p` (стр. 503) — локальный
+- `pct` (стр. 506) — локальный
+- `ownerBookingBlocksBox` (стр. 513) — локальный
+- `nextStart` (стр. 516) — локальный
+- `existingStart` (стр. 517) — локальный
+- `nextEnd` (стр. 519) — локальный
+- `existingEnd` (стр. 520) — локальный
+- `ownerPickDefaultBookingBox` (стр. 524) — локальный
+- `resourceGroup` (стр. 533) — локальный
+- `preferred` (стр. 534) — локальный
+- `fallback` (стр. 535) — локальный
+- `candidates` (стр. 536) — локальный
+- `serviceResourceGroupForCategory` (стр. 541) — локальный
+- `numberInputValue` (стр. 545) — локальный
+- `defaultPiggyGroup` (стр. 561) — локальный
+- `rg` (стр. 562) — локальный
+- `ORDER_STEPS` (стр. 567) — локальный
+- `serviceMoneySummary` (стр. 589) — локальный
+- `piggyTargetLabel` (стр. 590) — локальный
+- `master` (стр. 594) — локальный
+- `piggy` (стр. 599) — локальный
+- `owners` (стр. 610) — локальный
+- `previewServiceSplit` (стр. 618) — локальный
+- `materials` (стр. 623) — локальный
+- `net` (стр. 624) — локальный
+- `order` (стр. 625) — локальный
+- `pipeline` (стр. 626) — локальный
+- `piggyType` (стр. 627) — локальный
+- `computeMaster` (стр. 634) — локальный
+- `cap` (стр. 636) — локальный
+- `computePiggy` (стр. 645) — локальный
+- `grp` (стр. 650) — локальный
+- `m` (стр. 655) — локальный
+- `p` (стр. 657) — локальный
+- `afterMasterPiggy` (стр. 662) — локальный
+- `m` (стр. 681) — локальный
+- `p` (стр. 685) — локальный
+- `claimed` (стр. 690) — локальный
+- `numberFromInput` (стр. 716) — локальный
+- `parseDecimalInput` (стр. 721) — локальный
+- `normalized` (стр. 722) — локальный
+- `parsed` (стр. 723) — локальный
+- `isValidAmountInput` (стр. 727) — локальный
+- `n` (стр. 728) — локальный
+- `toISODate` (стр. 732) — локальный
+- `parsed` (стр. 733) — локальный
+- `y` (стр. 735) — локальный
+- `m` (стр. 736) — локальный
+- `d` (стр. 737) — локальный
+- `TIME_SLOTS` (стр. 741) — локальный
+- `h` (стр. 742) — локальный
+- `m` (стр. 743) — локальный
+- `OwnerPayoutWeightsEditor` (стр. 750) — локальный
+- `total` (стр. 768) — локальный
+- `save` (стр. 769) — локальный
+- `body` (стр. 773) — локальный
+- `saved` (стр. 778) — локальный
+- `w` (стр. 802) — локальный
+- `share` (стр. 803) — локальный
+- `OwnerApp` (стр. 835)
+- `isAccountant` (стр. 905) — локальный
+- `modalMaxHeight` (стр. 906) — локальный
+- `financeRoleTitle` (стр. 907) — локальный
+- `financeNotificationRole` (стр. 908) — локальный
+- `__nowRpt` (стр. 991) — локальный
+- `__dowRpt` (стр. 992) — локальный
+- `__monRpt` (стр. 993) — локальный
+- `__sunRpt` (стр. 994) — локальный
+- `newPayRequestId` (стр. 1009) — локальный
+- `piggyWithdrawRequestIdRef` (стр. 1018) — локальный
+- `piggyAdjustRequestIdRef` (стр. 1020) — локальный
+- `piggyDepositRequestIdRef` (стр. 1021) — локальный
+- `entryRequestIdRef` (стр. 1074) — локальный
+- `salaryBookingsRef` (стр. 1091) — локальный
+- `salaryPayoutRef` (стр. 1092) — локальный
+- `salaryHistoryRef` (стр. 1093) — локальный
+- `flashSalaryForm` (стр. 1095) — локальный
+- `el` (стр. 1098) — локальный
+- `input` (стр. 1101) — локальный
+- `outsourcersApi` (стр. 1112) — локальный
+- `today` (стр. 1248) — локальный
+- `previewDraftRef` (стр. 1277) — локальный
+- `simDraftRef` (стр. 1278) — локальный
+- `addSimDop` (стр. 1291) — локальный
+- `patchSimDop` (стр. 1296) — локальный
+- `removeSimDop` (стр. 1298) — локальный
+- `pd` (стр. 1301) — локальный
+- `sd` (стр. 1306) — локальный
+- `t` (стр. 1312) — локальный
+- `clearOwnerResetFlow` (стр. 1426) — локальный
+- `nextBoxes` (стр. 1449) — локальный
+- `params` (стр. 1487) — локальный
+- `params` (стр. 1502) — локальный
+- `handlePayOwnerSalary` (стр. 1513) — локальный
+- `amount` (стр. 1514) — локальный
+- `updated` (стр. 1533) — локальный
+- `handleToggleOwnerMasterRole` (стр. 1541) — локальный
+- `params` (стр. 1546) — локальный
+- `updated` (стр. 1551) — локальный
+- `loadPiggyBank` (стр. 1562) — локальный
+- `params` (стр. 1566) — локальный
+- `qs` (стр. 1569) — локальный
+- `data` (стр. 1571) — локальный
+- `loadWallet` (стр. 1579) — локальный
+- `params` (стр. 1583) — локальный
+- `qs` (стр. 1586) — локальный
+- `data` (стр. 1588) — локальный
+- `handlePiggyWithdraw` (стр. 1594) — локальный
+- `f` (стр. 1595) — локальный
+- `amount` (стр. 1598) — локальный
+- `buyerLabel` (стр. 1630) — локальный
+- `segmentLabel` (стр. 1633) — локальный
+- `toastMsg` (стр. 1634) — локальный
+- `openPiggyWithdraw` (стр. 1649) — локальный
+- `handlePiggyBankExport` (стр. 1656) — локальный
+- `openPiggyAdjust` (стр. 1667) — локальный
+- `current` (стр. 1668) — локальный
+- `currentPrecise` (стр. 1672) — локальный
+- `handlePiggyAdjust` (стр. 1680) — локальный
+- `newBalance` (стр. 1681) — локальный
+- `delta` (стр. 1684) — локальный
+- `openPiggyDeposit` (стр. 1721) — локальный
+- `handlePiggyDeposit` (стр. 1727) — локальный
+- `amount` (стр. 1728) — локальный
+- `target` (стр. 1731) — локальный
+- `handlePiggyDeleteTx` (стр. 1759) — локальный
+- `syncCountdown` (стр. 1818) — локальный
+- `diffMs` (стр. 1819) — локальный
+- `intervalId` (стр. 1824) — локальный
+- `handleOpenShiftForMasters` (стр. 1854) — локальный
+- `saved` (стр. 1863) — локальный
+- `ownerNotifications` (стр. 1879) — локальный
+- `unreadCount` (стр. 1880) — локальный
+- `completedBookings` (стр. 1881) — локальный
+- `todayBookings` (стр. 1882) — локальный
+- `activeMasters` (стр. 1884) — локальный
+- `broadcastTargets` (стр. 1888) — локальный
+- `masterCameOutTodayAt` (стр. 1893) — локальный
+- `times` (стр. 1894) — локальный
+- `mastersCameOutToday` (стр. 1903) — локальный
+- `vv` (стр. 1907) — локальный
+- `handler` (стр. 1909) — локальный
+- `el` (стр. 1910) — локальный
+- `bookingFormBoxes` (стр. 1917) — локальный
+- `bookingFormLocationLabel` (стр. 1918) — локальный
+- `editBookingLocationLabel` (стр. 1919) — локальный
+- `todayRevenue` (стр. 1920) — локальный
+- `now` (стр. 1923) — локальный
+- `dayOfWeek` (стр. 1924) — локальный
+- `diffToSaturday` (стр. 1925) — локальный
 
 ### frontend/src/app/components/owner/OwnerCleanupSection.tsx (498 строк)
 
@@ -5356,6 +5358,10 @@ concept1.0/
 - `fetchData` (стр. 41) — локальный
 - `result` (стр. 52) — локальный
 - `result` (стр. 56) — локальный
+
+### frontend/src/app/components/shared/BookingReferralSourceSelect.tsx (18 строк)
+
+- `BookingReferralSourceSelect` (стр. 3)
 
 ### frontend/src/app/components/shared/CancellationStatsCard.tsx (124 строк)
 
@@ -5933,6 +5939,14 @@ concept1.0/
 
 - `useTelegramSetup` (стр. 11)
 
+### frontend/src/app/utils/bookingClient.ts (30 строк)
+
+- `findBookingClient` (стр. 11)
+- `phone` (стр. 16) — локальный
+- `matches` (стр. 17) — локальный
+- `plate` (стр. 23) — локальный
+- `matches` (стр. 26) — локальный
+
 ### frontend/src/app/utils/complaints.ts (44 строк)
 
 - `MAX_WORKER_PERCENT` (стр. 3)
@@ -6281,18 +6295,18 @@ concept1.0/
 
 ## Недавно изменённые файлы
 
-- `.tmp_commit_msg2.txt` (2026-11-22 11:47)
+- `backend/tests/test_booking_logic.py` (2026-11-23 17:23)
+- `frontend/src/app/utils/bookingClient.ts` (2026-11-23 17:23)
+- `backend/app/main.py` (2026-11-23 17:10)
+- `frontend/src/app/context/AppContext.tsx` (2026-11-23 17:10)
+- `frontend/src/app/components/admin/AdminApp.tsx` (2026-11-23 17:10)
+- `frontend/src/app/components/owner/OwnerApp.tsx` (2026-11-23 17:10)
+- `backend/app/schemas.py` (2026-11-23 17:09)
+- `frontend/src/app/components/shared/BookingReferralSourceSelect.tsx` (2026-11-23 17:09)
 - `frontend/src/app/components/owner/screens/OwnerPiggyBankScreen.tsx` (2026-11-22 11:34)
 - `frontend/src/app/components/owner/screens/PiggyDailyReconciliation.tsx` (2026-11-22 11:34)
 - `backend/tests/test_piggy_daily_reconciliation.py` (2026-11-22 11:33)
-- `backend/app/main.py` (2026-11-22 11:32)
-- `backend/app/schemas.py` (2026-11-22 11:31)
 - `backend/app/models.py` (2026-11-22 11:31)
 - `piggy_reconciliation_2026-11-20.md` (2026-11-22 11:21)
 - `diag_who_3772.txt` (2026-11-22 11:21)
 - `diag_no_deposit.txt` (2026-11-22 11:21)
-- `diag_odd_deposits.txt` (2026-11-22 11:21)
-- `diag_194_audit.txt` (2026-11-22 11:21)
-- `diag_194_deep.txt` (2026-11-22 11:21)
-- `diag_194_pairs.txt` (2026-11-22 11:20)
-- `diag_194_pairs.py` (2026-11-22 11:20)
